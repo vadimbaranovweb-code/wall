@@ -17,23 +17,23 @@ interface Props { cardId: string }
 export const CardShell = React.memo(({ cardId }: Props) => {
   // ✅ Select individual fields — never call functions that return new objects
   const x       = useCardsStore(s => {
-    const dp = s.dragPositions instanceof Map ? s.dragPositions.get(cardId) : undefined
+    const dp = s.dragPositions instanceof Map ? (s.dragPositions as Map<string, {x:number;y:number;zIndex:number}>).get(cardId) : undefined
     return dp?.x ?? s.cards.find(c => c.id === cardId)?.x ?? 0
   })
   const y       = useCardsStore(s => {
-    const dp = s.dragPositions instanceof Map ? s.dragPositions.get(cardId) : undefined
+    const dp = s.dragPositions instanceof Map ? (s.dragPositions as Map<string, {x:number;y:number;zIndex:number}>).get(cardId) : undefined
     return dp?.y ?? s.cards.find(c => c.id === cardId)?.y ?? 0
   })
   const width   = useCardsStore(s => {
-    const rp = s.resizePositions instanceof Map ? s.resizePositions.get(cardId) : undefined
+    const rp = s.resizePositions instanceof Map ? (s.resizePositions as Map<string, {width:number;height:number}>).get(cardId) : undefined
     return rp?.width ?? s.cards.find(c => c.id === cardId)?.width ?? 240
   })
   const height  = useCardsStore(s => {
-    const rp = s.resizePositions instanceof Map ? s.resizePositions.get(cardId) : undefined
+    const rp = s.resizePositions instanceof Map ? (s.resizePositions as Map<string, {width:number;height:number}>).get(cardId) : undefined
     return rp?.height ?? s.cards.find(c => c.id === cardId)?.height ?? 120
   })
   const zIndex  = useCardsStore(s => {
-    const dp = s.dragPositions instanceof Map ? s.dragPositions.get(cardId) : undefined
+    const dp = s.dragPositions instanceof Map ? (s.dragPositions as Map<string, {x:number;y:number;zIndex:number}>).get(cardId) : undefined
     return dp?.zIndex ?? s.cards.find(c => c.id === cardId)?.zIndex ?? 1000
   })
   const rotation  = useCardsStore(s => s.cards.find(c => c.id === cardId)?.rotation ?? 0)

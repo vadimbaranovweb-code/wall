@@ -12,9 +12,15 @@ const DEFAULTS = {
   voice: { width: 240, height: 100 },
 }
 
-// ─── Safe Map helper ──────────────────────────────────────────────────────────
-function safeMap<K, V>(v: unknown): Map<K, V> {
-  return v instanceof Map ? v : new Map()
+// ─── Safe Map helpers (typed to avoid TS2345) ────────────────────────────────
+type DragMap   = Map<string, { x: number; y: number; zIndex: number }>
+type ResizeMap = Map<string, { width: number; height: number }>
+
+function safeDragMap(v: unknown): DragMap {
+  return v instanceof Map ? (v as DragMap) : new Map()
+}
+function safeResizeMap(v: unknown): ResizeMap {
+  return v instanceof Map ? (v as ResizeMap) : new Map()
 }
 
 // ─── Base card builder ────────────────────────────────────────────────────────
@@ -166,20 +172,20 @@ export const useCardsStore = create<CardsState>()((set, get) => ({
     const card = get().getCard(id)
     if (!card) return
     set(s => {
-      const map = new Map(safeMap(s.dragPositions))
+      const map = new Map(safeDragMap(s.dragPositions))
       map.set(id, { x, y, zIndex: get().maxZIndex(card.wallId) + 1 })
       return { dragPositions: map }
     })
   },
 
   commitDrag: (id) => {
-    const drag = safeMap<string, { x: number; y: number; zIndex: number }>(get().dragPositions).get(id)
+    const drag = safeDragMap(get().dragPositions).get(id)
     if (!drag) return
     set(s => {
       const cards = s.cards.map(c =>
         c.id === id ? { ...c, x: drag.x, y: drag.y, zIndex: drag.zIndex, updatedAt: Date.now() } : c
       )
-      const map = new Map(safeMap(s.dragPositions))
+      const map = new Map(safeDragMap(s.dragPositions))
       map.delete(id)
       return { cards, dragPositions: map }
     })
@@ -187,7 +193,7 @@ export const useCardsStore = create<CardsState>()((set, get) => ({
 
   cancelDrag: (id) =>
     set(s => {
-      const map = new Map(safeMap(s.dragPositions))
+      const map = new Map(safeDragMap(s.dragPositions))
       map.delete(id)
       return { dragPositions: map }
     }),
@@ -197,20 +203,20 @@ export const useCardsStore = create<CardsState>()((set, get) => ({
     const w = Math.max(MIN_CARD_WIDTH,  width)
     const h = Math.max(MIN_CARD_HEIGHT, height)
     set(s => {
-      const map = new Map(safeMap(s.resizePositions))
+      const map = new Map(safeResizeMap(s.resizePositions))
       map.set(id, { width: w, height: h })
       return { resizePositions: map }
     })
   },
 
   commitResize: (id) => {
-    const resize = safeMap<string, { width: number; height: number }>(get().resizePositions).get(id)
+    const resize = safeResizeMap(get().resizePositions).get(id)
     if (!resize) return
     set(s => {
       const cards = s.cards.map(c =>
         c.id === id ? { ...c, ...resize, updatedAt: Date.now() } : c
       )
-      const map = new Map(safeMap(s.resizePositions))
+      const map = new Map(safeResizeMap(s.resizePositions))
       map.delete(id)
       return { cards, resizePositions: map }
     })
@@ -218,7 +224,7 @@ export const useCardsStore = create<CardsState>()((set, get) => ({
 
   cancelResize: (id) =>
     set(s => {
-      const map = new Map(safeMap(s.resizePositions))
+      const map = new Map(safeResizeMap(s.resizePositions))
       map.delete(id)
       return { resizePositions: map }
     }),

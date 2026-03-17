@@ -1,5 +1,6 @@
 // supabase/functions/og-meta/index.ts
-// Deploy: supabase functions deploy og-meta
+// Fetches OG metadata for any URL, with special handling for YouTube.
+// JWT verification is disabled — this is a public endpoint (anon key still required).
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 
@@ -8,152 +9,154 @@ const CORS = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-// ─── YouTube helpers ──────────────────────────────────────────────────────────
-
+// ─── YouTube ──────────────────────────────────────────────────────────────────
 function extractYouTubeId(url: string): string | null {
   try {
     const u = new URL(url)
-    // youtube.com/watch?v=ID
-    if (u.hostname.includes('youtube.com')) {
-      return u.searchParams.get('v')
-    }
-    // youtu.be/ID
-    if (u.hostname === 'youtu.be') {
-      return u.pathname.slice(1).split('?')[0] || null
-    }
-    // youtube.com/embed/ID  or  youtube.com/shorts/ID
+    if (u.hostname.includes('youtube.com')) return u.searchParams.get('v')
+    if (u.hostname === 'youtu.be') return u.pathname.slice(1).split('?')[0] || null
     const m = u.pathname.match(/\/(embed|shorts|v)\/([^/?]+)/)
     return m?.[2] ?? null
-  } catch {
-    return null
-  }
+  } catch { return null }
 }
 
-function youTubeMeta(videoId: string, url: string) {
-  return {
-    type:        'youtube',
-    videoId,
-    title:       undefined,  // would need YouTube Data API for title
-    description: undefined,
-    ogImageUrl:  `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
-    faviconUrl:  'https://www.google.com/s2/favicons?domain=youtube.com&sz=32',
-    domain:      'youtube.com',
-  }
-}
-
-// ─── OG meta parser ───────────────────────────────────────────────────────────
-
-function parseOg(html: string, url: string) {
-  const get = (prop: string): string | undefined => {
+// ─── OG parser ────────────────────────────────────────────────────────────────
+function parseOg(html: string, originalUrl: string) {
+  const attr = (tag: string, attrName: string): string | undefined => {
+    // Match both property= and name= variants, handle single/double quotes
     const patterns = [
-      new RegExp(`<meta[^>]+(?:property|name)=["']${prop}["'][^>]+content=["']([^"']+)["']`, 'i'),
-      new RegExp(`<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|name)=["']${prop}["']`, 'i'),
+      new RegExp(`<meta[^>]+(?:property|name)=["']${tag}["'][^>]+content=["']([^"'<>]+)["']`, 'i'),
+      new RegExp(`<meta[^>]+content=["']([^"'<>]+)["'][^>]+(?:property|name)=["']${tag}["']`, 'i'),
     ]
     for (const re of patterns) {
       const m = html.match(re)
-      if (m?.[1]) return m[1].trim()
+      if (m?.[1]?.trim()) return m[1].trim()
     }
     return undefined
   }
 
   const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i)
-  const hostname   = new URL(url).hostname
+  const hostname   = (() => {
+    try { return new URL(originalUrl).hostname } catch { return '' }
+  })()
+
+  // Try multiple image sources
+  const ogImage = attr('og:image') ?? attr('twitter:image:src') ?? attr('twitter:image')
+
+  // Resolve relative image URLs
+  let resolvedImage = ogImage
+  if (ogImage && ogImage.startsWith('/')) {
+    try {
+      const base = new URL(originalUrl)
+      resolvedImage = `${base.protocol}//${base.host}${ogImage}`
+    } catch { /* keep as-is */ }
+  }
 
   return {
     type:        'website',
-    title:       get('og:title') ?? get('twitter:title') ?? titleMatch?.[1]?.trim(),
-    description: get('og:description') ?? get('description'),
-    ogImageUrl:  get('og:image') ?? get('twitter:image'),
-    faviconUrl:  `https://www.google.com/s2/favicons?domain=${hostname}&sz=32`,
+    title:       attr('og:title') ?? attr('twitter:title') ?? titleMatch?.[1]?.trim(),
+    description: attr('og:description') ?? attr('twitter:description') ?? attr('description'),
+    ogImageUrl:  resolvedImage,
+    faviconUrl:  `https://www.google.com/s2/favicons?domain=${hostname}&sz=64`,
     domain:      hostname.replace(/^www\./, ''),
   }
 }
 
-// ─── Handler ──────────────────────────────────────────────────────────────────
+// ─── Fetch HTML (with redirect follow) ───────────────────────────────────────
+async function fetchHtml(url: string): Promise<string> {
+  const res = await fetch(url, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Accept':     'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      'Accept-Language': 'en-US,en;q=0.9',
+    },
+    redirect: 'follow',
+    signal:   AbortSignal.timeout(10000),
+  })
 
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+
+  // Read first 150KB — OG tags are always in <head>
+  const reader = res.body?.getReader()
+  if (!reader) throw new Error('No body')
+
+  const chunks: Uint8Array[] = []
+  let total = 0
+  const MAX = 150_000
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done || !value) break
+    chunks.push(value)
+    total += value.length
+    if (total >= MAX) { reader.cancel(); break }
+  }
+
+  const merged = new Uint8Array(total)
+  let offset = 0
+  for (const chunk of chunks) {
+    merged.set(chunk, offset)
+    offset += chunk.length
+  }
+
+  return new TextDecoder('utf-8', { fatal: false }).decode(merged)
+}
+
+// ─── Handler ──────────────────────────────────────────────────────────────────
 serve(async (req) => {
-  // CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: CORS })
   }
 
   try {
-    const { searchParams } = new URL(req.url)
-    const url = searchParams.get('url')
+    const url = new URL(req.url).searchParams.get('url')
 
     if (!url) {
-      return new Response(
-        JSON.stringify({ error: 'Missing url parameter' }),
-        { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } }
-      )
+      return json({ error: 'Missing url' }, 400)
     }
 
-    // Validate URL
-    let parsedUrl: URL
-    try { parsedUrl = new URL(url) }
-    catch {
-      return new Response(
-        JSON.stringify({ error: 'Invalid URL' }),
-        { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } }
-      )
+    // Validate
+    try { new URL(url) } catch {
+      return json({ error: 'Invalid URL' }, 400)
     }
 
     // YouTube — no fetch needed
     const ytId = extractYouTubeId(url)
     if (ytId) {
-      return new Response(
-        JSON.stringify(youTubeMeta(ytId, url)),
-        { headers: { ...CORS, 'Content-Type': 'application/json' } }
-      )
+      return json({
+        type:       'youtube',
+        videoId:    ytId,
+        ogImageUrl: `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`,
+        faviconUrl: 'https://www.google.com/s2/favicons?domain=youtube.com&sz=64',
+        domain:     'youtube.com',
+      })
     }
 
-    // Generic site — fetch HTML
-    const res = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; StenaBot/1.0; +https://stena.app)',
-        'Accept':     'text/html,application/xhtml+xml',
-      },
-      signal: AbortSignal.timeout(8000),
-    })
-
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-
-    // Read only first 100KB — enough for OG tags which are in <head>
-    const reader  = res.body?.getReader()
-    const chunks: Uint8Array[] = []
-    let totalBytes = 0
-    const MAX = 100_000
-
-    if (reader) {
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done || !value) break
-        chunks.push(value)
-        totalBytes += value.length
-        if (totalBytes >= MAX) { reader.cancel(); break }
-      }
-    }
-
-    const html = new TextDecoder().decode(
-      chunks.reduce((acc, c) => {
-        const merged = new Uint8Array(acc.length + c.length)
-        merged.set(acc); merged.set(c, acc.length)
-        return merged
-      }, new Uint8Array(0))
-    )
-
+    // Generic — fetch HTML
+    const html = await fetchHtml(url)
     const meta = parseOg(html, url)
-
-    return new Response(
-      JSON.stringify(meta),
-      { headers: { ...CORS, 'Content-Type': 'application/json' } }
-    )
+    return json(meta)
 
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error'
-    return new Response(
-      JSON.stringify({ error: message }),
-      { status: 500, headers: { ...CORS, 'Content-Type': 'application/json' } }
-    )
+    // Return fallback instead of error — client handles missing fields gracefully
+    try {
+      const hostname = new URL(new URL(req.url).searchParams.get('url') ?? '').hostname
+      return json({
+        type:      'website',
+        domain:    hostname.replace(/^www\./, ''),
+        faviconUrl: `https://www.google.com/s2/favicons?domain=${hostname}&sz=64`,
+        error:     message,
+      })
+    } catch {
+      return json({ error: message }, 500)
+    }
   }
 })
+
+function json(data: unknown, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { ...CORS, 'Content-Type': 'application/json' },
+  })
+}

@@ -1,5 +1,5 @@
 import { useRef, useCallback } from 'react'
-import { useShallow } from 'zustand/react/shallow'
+import { useShallow }      from 'zustand/react/shallow'
 import { useBoardStore }   from '@/stores/boardStore'
 import { useCardsStore }   from '@/stores/cardsStore'
 import { useBoard }        from '@/hooks/useBoard'
@@ -7,6 +7,7 @@ import { CardShell }       from '@/features/cards/CardShell'
 import { QuickAddButton }  from '@/features/quick-add/QuickAddButton'
 import { DropZoneOverlay } from '@/features/board/DropZoneOverlay'
 import { ToastStack }      from '@/components/ToastStack'
+import { AutosaveIndicator } from '@/components/AutosaveIndicator'
 
 interface Props { wallId: string }
 
@@ -15,14 +16,12 @@ export function Board({ wallId }: Props) {
   const camera      = useBoardStore(s => s.camera)
   const resetCamera = useBoardStore(s => s.resetCamera)
 
-  // ✅ Select card IDs only — stable reference when cards don't change
-  // Zustand compares with shallow equality — array of primitives is safe
-  // useShallow prevents re-render when array contents are identical
   const cardIds = useCardsStore(useShallow(s =>
     s.cards.filter(c => c.wallId === wallId).map(c => c.id)
   ))
 
-  const { handleWheel, handleViewportMouseDown, screenToCanvas } = useBoard(viewportRef)
+  // handleWheel is now attached directly in useBoard (non-passive)
+  const { handleViewportMouseDown, screenToCanvas } = useBoard(viewportRef)
 
   const handleDblClick = useCallback((e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest('[data-card]')) return
@@ -39,8 +38,7 @@ export function Board({ wallId }: Props) {
 
       <div
         ref={viewportRef}
-        className="w-full h-full canvas-bg"
-        onWheel={handleWheel}
+        className="w-full h-full canvas-bg select-none"
         onMouseDown={handleViewportMouseDown}
         onDoubleClick={handleDblClick}
         style={{ cursor: 'default' }}
@@ -50,6 +48,7 @@ export function Board({ wallId }: Props) {
           style={{
             transform: `translate(${camera.x}px, ${camera.y}px) scale(${camera.zoom})`,
             willChange: 'transform',
+            transition: 'none',
           }}
         >
           {cardIds.map(id => (
@@ -61,14 +60,17 @@ export function Board({ wallId }: Props) {
       <DropZoneOverlay viewportRef={viewportRef} />
       <ToastStack />
 
-      <div className="absolute bottom-5 right-5 pointer-events-none">
+      {/* Bottom-right HUD */}
+      <div className="absolute bottom-5 right-5 flex items-center gap-2 pointer-events-none">
+        <AutosaveIndicator />
         <button
           className="pointer-events-auto px-3 py-1.5 rounded-lg
-                     bg-card border border-ink-10 shadow-card
-                     font-mono text-xs text-ink-60 hover:text-ink
-                     hover:border-ink-30 transition-all duration-150"
+                     bg-card/90 backdrop-blur-sm border border-ink-10
+                     shadow-card font-mono text-xs text-ink-60
+                     hover:text-ink hover:border-ink-30
+                     transition-all duration-150"
           onClick={resetCamera}
-          title="Сбросить вид (100%)"
+          title="Сбросить вид — 100% (Ctrl+0)"
         >
           {zoomPct}%
         </button>
@@ -84,16 +86,31 @@ export function Board({ wallId }: Props) {
 function EmptyBoardHint() {
   return (
     <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-      <div className="text-center animate-fade-in space-y-2">
-        <div className="w-14 h-14 rounded-2xl border-2 border-dashed border-ink-30
-                        flex items-center justify-center mx-auto text-2xl text-ink-30">
-          +
+      <div className="text-center animate-fade-in">
+        <div className="w-16 h-16 rounded-2xl border-2 border-dashed border-ink-20
+                        flex items-center justify-center mx-auto mb-5">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none"
+               className="text-ink-30">
+            <path d="M12 5v14M5 12h14" stroke="currentColor"
+                  strokeWidth="1.5" strokeLinecap="round"/>
+          </svg>
         </div>
-        <p className="text-sm font-medium text-ink-60">Стена пустая</p>
-        <div className="text-xs text-ink-30 space-y-0.5">
-          <p>Нажмите <kbd className="px-1.5 py-0.5 rounded bg-ink-10 font-mono">N</kbd> или кнопку <b>+</b> внизу</p>
-          <p>Вставьте <kbd className="px-1.5 py-0.5 rounded bg-ink-10 font-mono">⌘V</kbd> текст, ссылку или скриншот</p>
+        <p className="text-sm font-medium text-ink-60 mb-3">
+          Стена пустая
+        </p>
+        <div className="space-y-1.5 text-xs text-ink-30">
+          <p>
+            <kbd className="px-1.5 py-0.5 rounded-md bg-ink-10 font-mono text-ink-60">N</kbd>
+            {' '}новая заметка
+          </p>
+          <p>
+            <kbd className="px-1.5 py-0.5 rounded-md bg-ink-10 font-mono text-ink-60">⌘V</kbd>
+            {' '}вставить текст, ссылку или скриншот
+          </p>
           <p>Или перетащите файл сюда</p>
+          <p className="pt-2 text-ink-20">
+            Двойной клик на доске — создать заметку
+          </p>
         </div>
       </div>
     </div>

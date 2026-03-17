@@ -73,6 +73,8 @@ export function cardFromRow(row: CardRow): Card {
         ...base, type: 'link',
         url:         (c.url         as string) ?? '',
         domain:      (c.domain      as string) ?? '',
+        linkType:    (c.linkType    as 'website' | 'youtube') ?? 'website',
+        videoId:     c.videoId     as string | undefined,
         fetchState:  (c.fetchState  as 'idle' | 'loading' | 'done' | 'error') ?? 'done',
         title:       c.title       as string | undefined,
         description: c.description as string | undefined,
@@ -142,6 +144,8 @@ function cardContent(card: Card): Record<string, unknown> {
       return {
         url:         card.url,
         domain:      card.domain,
+        linkType:    card.linkType,
+        videoId:     card.videoId,
         fetchState:  card.fetchState,
         title:       card.title,
         description: card.description,

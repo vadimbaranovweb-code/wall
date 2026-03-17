@@ -43,11 +43,13 @@ export interface ImageCard extends CardBase {
 export interface LinkCard extends CardBase {
   type: 'link'
   url: string
+  linkType: 'website' | 'youtube'  // detected on create
+  videoId?: string                  // YouTube only
   title?: string
   description?: string
   ogImageUrl?: string
   faviconUrl?: string
-  domain: string         // extracted hostname, always present
+  domain: string
   fetchState: 'idle' | 'loading' | 'done' | 'error'
 }
 

@@ -35,6 +35,18 @@ function makeBase(wallId: string, x: number, y: number, type: Card['type'], maxZ
   }
 }
 
+
+// ─── YouTube ID extractor ─────────────────────────────────────────────────────
+function extractYouTubeId(url: string): string | null {
+  try {
+    const u = new URL(url)
+    if (u.hostname.includes('youtube.com')) return u.searchParams.get('v')
+    if (u.hostname === 'youtu.be') return u.pathname.slice(1).split('?')[0] || null
+    const m = u.pathname.match(/\/(embed|shorts|v)\/([^/?]+)/)
+    return m?.[2] ?? null
+  } catch { return null }
+}
+
 // ─── Store interface ──────────────────────────────────────────────────────────
 interface CardsState {
   cards: Card[]
@@ -124,9 +136,15 @@ export const useCardsStore = create<CardsState>()((set, get) => ({
       try { return new URL(url).hostname.replace(/^www\./, '') }
       catch { return url }
     })()
+    const ytId = extractYouTubeId(url)
     const card: LinkCard = {
       ...makeBase(wallId, x, y, 'link', get().maxZIndex(wallId)),
-      type: 'link', url, domain, fetchState: 'idle',
+      type: 'link', url, domain,
+      linkType:   ytId ? 'youtube' : 'website',
+      videoId:    ytId ?? undefined,
+      ogImageUrl: ytId ? `https://img.youtube.com/vi/${ytId}/hqdefault.jpg` : undefined,
+      faviconUrl: ytId ? 'https://www.google.com/s2/favicons?domain=youtube.com&sz=32' : undefined,
+      fetchState: ytId ? 'done' : 'idle',
     }
     set(s => ({ cards: [...s.cards, card] }))
     return card

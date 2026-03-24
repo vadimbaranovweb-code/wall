@@ -15,7 +15,6 @@ export function TextCard({ card }: Props) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const [draft, setDraft] = useState(card.content)
 
-  // Sync draft when editing starts or content changes externally
   useEffect(() => {
     if (isEditing) {
       setDraft(card.content)
@@ -76,7 +75,7 @@ export function TextCard({ card }: Props) {
         />
       ) : (
         <p
-          className="flex-1 text-sm leading-relaxed text-ink break-words overflow-hidden"
+          className="flex-1 text-sm leading-relaxed text-ink break-words overflow-hidden whitespace-pre-wrap"
           style={{
             display: '-webkit-box',
             WebkitLineClamp: 8,

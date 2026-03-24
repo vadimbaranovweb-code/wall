@@ -50,7 +50,7 @@ export const CardShell = React.memo(({ cardId }: Props) => {
     s.dragPositions instanceof Map &&
     (s.dragPositions as Map<string, unknown>).has(cardId)
   )
-  const card       = useCardsStore(s => s.cards.find(c => c.id === cardId))
+  const card = useCardsStore(s => s.cards.find(c => c.id === cardId))
 
   const isSelected = useBoardStore(s => s.selectedCardId === cardId)
   const isEditing  = useBoardStore(s => s.editingCardId  === cardId)
@@ -75,12 +75,10 @@ export const CardShell = React.memo(({ cardId }: Props) => {
         width,
         height,
         zIndex,
-        // Smooth rotation snap when selected
         transform: isSelected ? 'none' : `rotate(${rotation}deg)`,
         transition: isDragging
           ? 'none'
           : 'transform 0.15s ease, box-shadow 0.2s ease',
-        // Layered shadows for depth
         boxShadow: isDragging
           ? '0 20px 60px rgba(26,24,20,0.22), 0 8px 20px rgba(26,24,20,0.14), 0 2px 6px rgba(26,24,20,0.10)'
           : isSelected
@@ -105,6 +103,27 @@ export const CardShell = React.memo(({ cardId }: Props) => {
       <div className="absolute inset-0 rounded-card bg-card border border-ink-10 overflow-hidden">
         <CardContent card={card} />
       </div>
+
+      {/* Quick delete button — показывается при hover */}
+      {isHovered && !isEditing && !isDragging && (
+        <button
+          className="absolute -top-2 -right-2 z-20
+                     w-5 h-5 rounded-full bg-ink text-card
+                     flex items-center justify-center
+                     hover:bg-red-500 transition-colors duration-100
+                     shadow-card animate-fade-in"
+          onMouseDown={e => e.stopPropagation()}
+          onClick={e => {
+            e.stopPropagation()
+            deleteCard(cardId)
+          }}
+          title="Удалить"
+        >
+          <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+            <path d="M1 1L7 7M7 1L1 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+          </svg>
+        </button>
+      )}
 
       {/* Hover / selected toolbar */}
       {showToolbar && (
@@ -131,7 +150,7 @@ export const CardShell = React.memo(({ cardId }: Props) => {
             <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
               <rect x="1.5" y="3.5" width="7" height="8" rx="1.5"
                     stroke="currentColor" strokeWidth="1.2"/>
-              <path d="M4.5 3.5V2.5C4.5 1.95 4.95 1.5 5.5 1.5H10.5C11.05 1.5 11.5 1.95 11.5 2.5V7.5C11.5 8.05 11.05 8.5 10.5 8.5H9.5"
+              <path d="M4.5 3.5V2.5C4.5 1.95 4.95 1.5 5.5 1.5H10.5C11.05 1.5 11.05 1.95 11.5 2.5V7.5C11.5 8.05 11.05 8.5 10.5 8.5H9.5"
                     stroke="currentColor" strokeWidth="1.2"/>
             </svg>
           </ToolbarBtn>
@@ -172,7 +191,6 @@ export const CardShell = React.memo(({ cardId }: Props) => {
 
 CardShell.displayName = 'CardShell'
 
-// ─── Toolbar button ────────────────────────────────────────────────────────────
 function ToolbarBtn({ children, title, onClick, danger }: {
   children: React.ReactNode
   title: string
@@ -195,7 +213,6 @@ function ToolbarBtn({ children, title, onClick, danger }: {
   )
 }
 
-// ─── Duplicate card ────────────────────────────────────────────────────────────
 function duplicateCard(card: Card) {
   const store = useCardsStore.getState()
   const offset = 24
@@ -217,7 +234,6 @@ function duplicateCard(card: Card) {
   }
 }
 
-// ─── Content router ────────────────────────────────────────────────────────────
 function CardContent({ card }: { card: Card }) {
   switch (card.type) {
     case 'text':  return <TextCard  card={card} />

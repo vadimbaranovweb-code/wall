@@ -19,9 +19,9 @@ type DragMap   = Map<string, { x: number; y: number; zIndex: number }>
 type ResizeMap = Map<string, { width: number; height: number }>
 
 export const CardShell = React.memo(({ cardId }: Props) => {
-  const [isHovered,    setIsHovered]    = useState(false)
-  const [menuOpen,     setMenuOpen]     = useState(false)
-  const [confirmOpen,  setConfirmOpen]  = useState(false)
+  const [isHovered,   setIsHovered]   = useState(false)
+  const [menuOpen,    setMenuOpen]    = useState(false)
+  const [confirmOpen, setConfirmOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
   const x = useCardsStore(s => {
@@ -108,7 +108,7 @@ export const CardShell = React.memo(({ cardId }: Props) => {
           cursor: isEditing ? 'text' : isDragging ? 'grabbing' : 'grab',
         }}
         onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => { setIsHovered(false) }}
+        onMouseLeave={() => setIsHovered(false)}
         onMouseDown={isEditing ? undefined : onMouseDown}
         onClick={e => { e.stopPropagation(); selectCard(cardId) }}
         onKeyDown={e => {
@@ -192,10 +192,18 @@ export const CardShell = React.memo(({ cardId }: Props) => {
         )}
       </div>
 
+      {/* Confirm delete modal — через portal чтобы не обрезалось */}
       {confirmOpen && createPortal(
         <div
-          className="fixed inset-0 z-[200] flex items-center justify-center"
-          style={{ backgroundColor: 'rgba(26,24,20,0.3)' }}
+          style={{
+            position: 'fixed',
+            top: 0, left: 0, right: 0, bottom: 0,
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: 'rgba(26,24,20,0.3)',
+          }}
           onMouseDown={e => {
             if (e.target === e.currentTarget) setConfirmOpen(false)
           }}
@@ -235,7 +243,9 @@ export const CardShell = React.memo(({ cardId }: Props) => {
         </div>,
         document.body
       )}
-   
+    </>
+  )
+})
 
 CardShell.displayName = 'CardShell'
 

@@ -21,36 +21,43 @@ export function Board({ wallId }: Props) {
     s.cards.filter(c => c.wallId === wallId).map(c => c.id)
   ))
 
-  const cards = useCardsStore(useShallow(s =>
-    s.cards.filter(c => c.wallId === wallId).map(c => ({
-      x: c.x, y: c.y, width: c.width, height: c.height
-    }))
-  ))
-
   const { handleViewportMouseDown, screenToCanvas } = useBoard(viewportRef)
 
-  // Auto-fit когда карточки загрузились
+  // Auto-fit когда карточки загрузились — только один раз на стену
   const hasFitted = useRef(false)
-  useEffect(() => {
-    if (hasFitted.current) return
-    if (cards.length === 0) return
-    const vp = viewportRef.current
-    if (!vp) return
 
-    hasFitted.current = true
-    fitCards(cards, vp.clientWidth, vp.clientHeight)
-  }, [cards, fitCards])
-
-  // Сброс флага при смене стены
   useEffect(() => {
     hasFitted.current = false
   }, [wallId])
 
+  useEffect(() => {
+    if (hasFitted.current) return
+    if (cardIds.length === 0) return
+    const vp = viewportRef.current
+    if (!vp) return
+
+    // Берём свежие данные из store напрямую — без подписки
+    const allCards = useCardsStore.getState().cards.filter(c => c.wallId === wallId)
+    if (allCards.length === 0) return
+
+    hasFitted.current = true
+    fitCards(
+      allCards.map(c => ({ x: c.x, y: c.y, width: c.width, height: c.height })),
+      vp.clientWidth,
+      vp.clientHeight
+    )
+  }, [cardIds.length, wallId, fitCards])
+
   const handleFitAll = useCallback(() => {
     const vp = viewportRef.current
     if (!vp) return
-    fitCards(cards, vp.clientWidth, vp.clientHeight)
-  }, [cards, fitCards])
+    const allCards = useCardsStore.getState().cards.filter(c => c.wallId === wallId)
+    fitCards(
+      allCards.map(c => ({ x: c.x, y: c.y, width: c.width, height: c.height })),
+      vp.clientWidth,
+      vp.clientHeight
+    )
+  }, [wallId, fitCards])
 
   const handleDblClick = useCallback((e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest('[data-card]')) return
@@ -94,7 +101,7 @@ export function Board({ wallId }: Props) {
         <AutosaveIndicator />
 
         {/* Fit all button */}
-        {cards.length > 0 && (
+        {cardIds.length > 0 && (
           <button
             className="pointer-events-auto px-3 py-1.5 rounded-lg
                        bg-card/90 backdrop-blur-sm border border-ink-10

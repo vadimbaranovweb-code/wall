@@ -1,4 +1,4 @@
-import { useRef, useCallback } from 'react'
+import { useRef, useCallback, useEffect } from 'react'
 import { useShallow }      from 'zustand/react/shallow'
 import { useBoardStore }   from '@/stores/boardStore'
 import { useCardsStore }   from '@/stores/cardsStore'
@@ -15,13 +15,42 @@ export function Board({ wallId }: Props) {
   const viewportRef = useRef<HTMLDivElement>(null)
   const camera      = useBoardStore(s => s.camera)
   const resetCamera = useBoardStore(s => s.resetCamera)
+  const fitCards    = useBoardStore(s => s.fitCards)
 
   const cardIds = useCardsStore(useShallow(s =>
     s.cards.filter(c => c.wallId === wallId).map(c => c.id)
   ))
 
-  // handleWheel is now attached directly in useBoard (non-passive)
+  const cards = useCardsStore(useShallow(s =>
+    s.cards.filter(c => c.wallId === wallId).map(c => ({
+      x: c.x, y: c.y, width: c.width, height: c.height
+    }))
+  ))
+
   const { handleViewportMouseDown, screenToCanvas } = useBoard(viewportRef)
+
+  // Auto-fit когда карточки загрузились
+  const hasFitted = useRef(false)
+  useEffect(() => {
+    if (hasFitted.current) return
+    if (cards.length === 0) return
+    const vp = viewportRef.current
+    if (!vp) return
+
+    hasFitted.current = true
+    fitCards(cards, vp.clientWidth, vp.clientHeight)
+  }, [cards, fitCards])
+
+  // Сброс флага при смене стены
+  useEffect(() => {
+    hasFitted.current = false
+  }, [wallId])
+
+  const handleFitAll = useCallback(() => {
+    const vp = viewportRef.current
+    if (!vp) return
+    fitCards(cards, vp.clientWidth, vp.clientHeight)
+  }, [cards, fitCards])
 
   const handleDblClick = useCallback((e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest('[data-card]')) return
@@ -63,6 +92,23 @@ export function Board({ wallId }: Props) {
       {/* Bottom-right HUD */}
       <div className="absolute bottom-5 right-5 flex items-center gap-2 pointer-events-none">
         <AutosaveIndicator />
+
+        {/* Fit all button */}
+        {cards.length > 0 && (
+          <button
+            className="pointer-events-auto px-3 py-1.5 rounded-lg
+                       bg-card/90 backdrop-blur-sm border border-ink-10
+                       shadow-card font-mono text-xs text-ink-60
+                       hover:text-ink hover:border-ink-30
+                       transition-all duration-150"
+            onClick={handleFitAll}
+            title="Показать все карточки"
+          >
+            ⊡
+          </button>
+        )}
+
+        {/* Zoom % */}
         <button
           className="pointer-events-auto px-3 py-1.5 rounded-lg
                      bg-card/90 backdrop-blur-sm border border-ink-10

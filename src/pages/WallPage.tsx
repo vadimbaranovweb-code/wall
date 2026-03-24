@@ -1,10 +1,11 @@
-import { useEffect } from 'react'
-import { useParams, useNavigate, Link } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
 import { useWallsStore } from '@/stores/wallsStore'
 import { useBoardStore } from '@/stores/boardStore'
 import { useCardsStore } from '@/stores/cardsStore'
 import { useCardsSync }  from '@/hooks/useCardsSync'
-import { Board } from '@/features/board/Board'
+import { Board }         from '@/features/board/Board'
+import { WallSidebar }   from '@/features/sidebar/WallSidebar'
 import type { WallColor } from '@/types'
 
 const colorBg: Record<WallColor, string> = {
@@ -17,38 +18,41 @@ const colorBg: Record<WallColor, string> = {
 }
 
 export function WallPage() {
-  const { wallId } = useParams<{ wallId: string }>()
-  const navigate   = useNavigate()
-  const wall       = useWallsStore(s => s.getWall(wallId ?? ''))
-  const cardCount  = useCardsStore(s => s.cards.filter(c => c.wallId === (wallId ?? '')).length)
+  const { wallId }  = useParams<{ wallId: string }>()
+  const navigate    = useNavigate()
+  const wall        = useWallsStore(s => s.getWall(wallId ?? ''))
+  const cardCount   = useCardsStore(s => s.cards.filter(c => c.wallId === (wallId ?? '')).length)
   const resetCamera = useBoardStore(s => s.resetCamera)
   const selectCard  = useBoardStore(s => s.selectCard)
 
-  // Load cards from Supabase and set up autosave
+  const [sidebarOpen, setSidebarOpen] = useState(true)
+
   const { loading: cardsLoading } = useCardsSync(wallId ?? '')
 
-  // Reset board state when navigating to a new wall
   useEffect(() => {
     resetCamera()
     selectCard(null)
   }, [wallId]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Global keyboard shortcuts for the wall
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement).tagName
       if (tag === 'TEXTAREA' || tag === 'INPUT') return
 
-      // Escape = deselect
       if (e.key === 'Escape') {
         selectCard(null)
         useBoardStore.getState().stopEditing()
       }
 
-      // 0 = reset camera
       if (e.key === '0' && (e.metaKey || e.ctrlKey)) {
         e.preventDefault()
         resetCamera()
+      }
+
+      // Cmd+\ toggle sidebar
+      if (e.key === '\\' && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault()
+        setSidebarOpen(v => !v)
       }
     }
     window.addEventListener('keydown', handler)
@@ -60,9 +64,12 @@ export function WallPage() {
       <div className="min-h-screen bg-canvas flex items-center justify-center">
         <div className="text-center">
           <p className="text-ink-60 text-lg font-medium mb-2">Стена не найдена</p>
-          <Link to="/" className="text-sm text-ink-30 hover:text-ink underline">
+          <button
+            className="text-sm text-ink-30 hover:text-ink underline"
+            onClick={() => navigate('/')}
+          >
             ← К списку стен
-          </Link>
+          </button>
         </div>
       </div>
     )
@@ -71,21 +78,8 @@ export function WallPage() {
   return (
     <div className="flex flex-col h-screen">
       {/* ── Topbar ──────────────────────────────────────────────────── */}
-      <header
-        className="flex items-center gap-3 px-4 py-2.5 border-b border-ink-10 bg-card
-                   flex-shrink-0 h-12"
-      >
-        {/* Back */}
-        <Link
-          to="/"
-          className="w-7 h-7 rounded-lg flex items-center justify-center
-                     text-ink-30 hover:text-ink hover:bg-ink-10
-                     transition-colors text-lg"
-          title="Все стены"
-        >
-          ‹
-        </Link>
-
+      <header className="flex items-center gap-3 px-4 py-2.5 border-b border-ink-10 bg-card
+                         flex-shrink-0 h-12 z-10">
         {/* Color dot */}
         <div
           className="w-3 h-3 rounded-full flex-shrink-0"
@@ -102,7 +96,7 @@ export function WallPage() {
           {cardCount} карт.
         </span>
 
-        {/* Hint */}
+        {/* Hints */}
         <div className="hidden sm:flex items-center gap-3 text-xs text-ink-30 flex-shrink-0">
           <span><kbd className="px-1 py-0.5 rounded bg-ink-10 font-mono">N</kbd> новая</span>
           <span><kbd className="px-1 py-0.5 rounded bg-ink-10 font-mono">Dbl</kbd> создать</span>
@@ -110,9 +104,15 @@ export function WallPage() {
         </div>
       </header>
 
-      {/* ── Board ────────────────────────────────────────────────────── */}
-      <div className="flex-1 overflow-hidden">
-        <Board wallId={wall.id} />
+      {/* ── Main area: sidebar + board ───────────────────────────────── */}
+      <div className="flex flex-1 overflow-hidden relative">
+        <WallSidebar
+          isOpen={sidebarOpen}
+          onToggle={() => setSidebarOpen(v => !v)}
+        />
+        <div className="flex-1 overflow-hidden">
+          <Board wallId={wall.id} />
+        </div>
       </div>
     </div>
   )

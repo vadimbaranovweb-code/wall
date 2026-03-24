@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { useBoardStore } from '@/stores/boardStore'
 import { useCardsStore } from '@/stores/cardsStore'
 import { useDrag }       from '@/hooks/useDrag'
@@ -191,8 +192,7 @@ export const CardShell = React.memo(({ cardId }: Props) => {
         )}
       </div>
 
-      {/* Confirm delete modal */}
-      {confirmOpen && (
+      {confirmOpen && createPortal(
         <div
           className="fixed inset-0 z-[200] flex items-center justify-center"
           style={{ backgroundColor: 'rgba(26,24,20,0.3)' }}
@@ -232,11 +232,10 @@ export const CardShell = React.memo(({ cardId }: Props) => {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
-    </>
-  )
-})
+   
 
 CardShell.displayName = 'CardShell'
 

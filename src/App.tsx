@@ -15,7 +15,6 @@ function HomeRedirect() {
 
   useEffect(() => {
     if (!isLoaded) return
-
     if (walls.length > 0) {
       const last = [...walls].sort((a, b) => b.updatedAt - a.updatedAt)[0]
       navigate(`/walls/${last.id}`, { replace: true })
@@ -35,20 +34,27 @@ function HomeRedirect() {
 }
 
 export function App() {
-  const { user, loading, setSession, setLoading, signInAnonymously } = useAuthStore()
+  const { user, loading, setSession, setLoading } = useAuthStore()
 
   useEffect(() => {
+    // Сначала проверяем есть ли сессия
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session) {
         setSession(session)
         setLoading(false)
-      } else {
-        // Нет сессии — создаём анонимную
-        try {
-          await signInAnonymously()
-        } catch (e) {
-          console.error('Anonymous sign-in failed:', e)
-        }
+        return
+      }
+
+      // Нет сессии — пробуем анонимный вход
+      try {
+        const { data, error } = await supabase.auth.signInAnonymously()
+        if (error) throw error
+        setSession(data.session)
+      } catch (e) {
+        console.error('Anonymous sign-in failed:', e)
+        // Если анонимный вход не работает — просто снимаем loading
+        // пользователь увидит пустой экран с возможностью войти
+      } finally {
         setLoading(false)
       }
     })
@@ -56,7 +62,6 @@ export function App() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         setSession(session)
-        setLoading(false)
       }
     )
 
@@ -72,26 +77,45 @@ export function App() {
     )
   }
 
+  // Нет юзера даже после анонимного входа — показываем логин
+  if (!user) {
+    return (
+      <BrowserRouter>
+        <Routes>
+          <Route path="*" element={
+            <div className="min-h-screen bg-canvas flex items-center justify-center p-6">
+              <div className="w-full max-w-sm">
+                <div className="flex items-center gap-3 justify-center mb-10">
+                  <div className="w-10 h-10 rounded-xl bg-ink flex items-center justify-center">
+                    <span className="text-card font-bold text-lg">С</span>
+                  </div>
+                  <span className="font-semibold text-ink text-2xl tracking-tight">Стена</span>
+                </div>
+                <div className="bg-card border border-ink-10 rounded-2xl p-8 shadow-card text-center">
+                  <p className="text-sm text-ink-60 mb-4">Не удалось загрузить приложение</p>
+                  <button
+                    className="px-4 py-2 rounded-xl bg-ink text-card text-sm font-medium"
+                    onClick={() => window.location.reload()}
+                  >
+                    Попробовать снова
+                  </button>
+                </div>
+              </div>
+            </div>
+          } />
+        </Routes>
+      </BrowserRouter>
+    )
+  }
+
   return (
     <ErrorBoundary>
       <BrowserRouter>
         <Routes>
-          {/* Все пользователи (включая анонимных) попадают на доску */}
-          <Route path="/" element={
-            user ? <HomeRedirect /> : (
-              <div className="min-h-screen bg-canvas flex items-center justify-center">
-                <div className="w-6 h-6 border-2 border-ink-10 border-t-ink-60
-                                rounded-full animate-spin" />
-              </div>
-            )
-          } />
-
+          <Route path="/" element={<HomeRedirect />} />
           <Route path="/walls/:wallId" element={
-            user
-              ? <ErrorBoundary><WallPage /></ErrorBoundary>
-              : <Navigate to="/" replace />
+            <ErrorBoundary><WallPage /></ErrorBoundary>
           } />
-
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>

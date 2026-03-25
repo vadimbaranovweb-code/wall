@@ -24,6 +24,8 @@ export function WallPage() {
   useEffect(() => {
     resetCamera()
     selectCard(null)
+    // Сохраняем текущую стену в localStorage
+    if (wallId) localStorage.setItem('stena:lastWallId', wallId)
   }, [wallId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Редирект только когда и auth и walls загружены

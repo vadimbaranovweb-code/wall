@@ -49,15 +49,8 @@ export function WallPage() {
   if (!wall) {
     return (
       <div className="min-h-screen bg-canvas flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-ink-60 text-lg font-medium mb-2">Стена не найдена</p>
-          <button
-            className="text-sm text-ink-30 hover:text-ink underline"
-            onClick={() => navigate('/')}
-          >
-            ← К списку стен
-          </button>
-        </div>
+        <div className="w-6 h-6 border-2 border-ink-10 border-t-ink-60
+                        rounded-full animate-spin" />
       </div>
     )
   }

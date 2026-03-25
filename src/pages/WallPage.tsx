@@ -5,6 +5,7 @@ import { useBoardStore } from '@/stores/boardStore'
 import { useCardsStore } from '@/stores/cardsStore'
 import { useCardsSync }  from '@/hooks/useCardsSync'
 import { Board }         from '@/features/board/Board'
+import { AnonBanner }    from '@/components/AnonBanner'
 import { WallSidebar }   from '@/features/sidebar/WallSidebar'
 
 export function WallPage() {
@@ -63,6 +64,7 @@ export function WallPage() {
 
   return (
     <div className="flex h-screen overflow-hidden">
+      <AnonBanner />
       <WallSidebar
         isOpen={sidebarOpen}
         onToggle={() => setSidebarOpen(v => !v)}

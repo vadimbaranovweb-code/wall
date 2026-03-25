@@ -21,7 +21,10 @@ export function useWallsSync() {
     setLoading(true)
     setError(null)
 
-    if (isAnonymous) {
+    const user = useAuthStore.getState().user
+    const isAnon = !user || user.is_anonymous
+
+    if (isAnon) {
       // Аноним — читаем из localStorage
       const walls = localGetWalls()
       if (!cancelled) {

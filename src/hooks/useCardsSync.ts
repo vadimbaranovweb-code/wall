@@ -38,7 +38,10 @@ export function useCardsSync(wallId: string) {
     setLoading(true)
     setError(null)
 
-    if (isAnonymous) {
+    const user = useAuthStore.getState().user
+    const isAnon = !user || user.is_anonymous
+
+    if (isAnon) {
       // Аноним — читаем из localStorage
       const cards = localGetCards(wallId)
       if (!cancelled) {
@@ -79,7 +82,7 @@ export function useCardsSync(wallId: string) {
           persistedIds.add(card.id)
           prevCards[card.id] = card
 
-          if (isAnonymous) {
+          if (isAnon) {
             localSaveCard(card)
           } else {
             insertCard(card).catch(console.error)
@@ -87,7 +90,7 @@ export function useCardsSync(wallId: string) {
           continue
         }
 
-        if (isAnonymous) {
+        if (isAnon) {
           // Для анонима — сохраняем всё локально при любом изменении
           if (prev.updatedAt !== card.updatedAt ||
               prev.x !== card.x || prev.y !== card.y ||
@@ -129,7 +132,7 @@ export function useCardsSync(wallId: string) {
   // ── Delete ────────────────────────────────────────────────────────────────
   const deleteCard = useCallback(async (id: string): Promise<void> => {
     _deleteLocal(id)
-    if (isAnonymous) {
+    if (isAnon) {
       localDeleteCard(id)
     } else {
       removeCard(id).catch(console.error)

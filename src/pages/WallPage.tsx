@@ -12,6 +12,7 @@ export function WallPage() {
   const { wallId }  = useParams<{ wallId: string }>()
   const navigate    = useNavigate()
   const wall        = useWallsStore(s => s.getWall(wallId ?? ''))
+  const isLoaded    = useWallsStore(s => s.isLoaded)
   const resetCamera = useBoardStore(s => s.resetCamera)
   const selectCard  = useBoardStore(s => s.selectCard)
 
@@ -23,6 +24,12 @@ export function WallPage() {
     resetCamera()
     selectCard(null)
   }, [wallId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Если стены загружены но текущая не найдена — редирект на главную
+  useEffect(() => {
+    if (!isLoaded) return
+    if (!wall) navigate('/', { replace: true })
+  }, [isLoaded, wall, navigate])
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {

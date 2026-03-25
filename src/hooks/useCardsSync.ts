@@ -23,13 +23,17 @@ function makeDebouncer() {
   }
 }
 
+function getIsAnon(): boolean {
+  const user = useAuthStore.getState().user
+  return !user || (user.is_anonymous ?? false)
+}
+
 export function useCardsSync(wallId: string) {
   const [loading, setLoading] = useState(true)
   const [error,   setError]   = useState<string | null>(null)
 
   const setCards     = useCardsStore(s => s.setCards)
   const _deleteLocal = useCardsStore(s => s.deleteCard)
-  const isAnonymous  = useAuthStore(s => s.isAnonymous)
   const debounce     = useRef(makeDebouncer()).current
 
   // ── Initial load ──────────────────────────────────────────────────────────
@@ -38,11 +42,7 @@ export function useCardsSync(wallId: string) {
     setLoading(true)
     setError(null)
 
-    const user = useAuthStore.getState().user
-    const isAnon = !user || user.is_anonymous
-
-    if (isAnon) {
-      // Аноним — читаем из localStorage
+    if (getIsAnon()) {
       const cards = localGetCards(wallId)
       if (!cancelled) {
         setCards(wallId, cards)
@@ -55,7 +55,7 @@ export function useCardsSync(wallId: string) {
     }
 
     return () => { cancelled = true }
-  }, [wallId, isAnonymous, setCards])
+  }, [wallId, setCards])
 
   // ── Autosave ──────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -65,6 +65,7 @@ export function useCardsSync(wallId: string) {
 
     const unsub = useCardsStore.subscribe(state => {
       const wallCards = state.cards.filter(c => c.wallId === wallId)
+      const isAnon = getIsAnon()
 
       if (!initialised) {
         wallCards.forEach(c => {
@@ -91,7 +92,6 @@ export function useCardsSync(wallId: string) {
         }
 
         if (isAnon) {
-          // Для анонима — сохраняем всё локально при любом изменении
           if (prev.updatedAt !== card.updatedAt ||
               prev.x !== card.x || prev.y !== card.y ||
               prev.width !== card.width || prev.height !== card.height) {
@@ -100,7 +100,6 @@ export function useCardsSync(wallId: string) {
             )
           }
         } else {
-          // Для авторизованных — синкаем в Supabase
           if (prev.x !== card.x || prev.y !== card.y || prev.zIndex !== card.zIndex) {
             debounce(`pos:${card.id}`, POSITION_DEBOUNCE_MS, () =>
               patchCardPosition(card.id, card.x, card.y, card.zIndex).catch(console.error)
@@ -127,17 +126,17 @@ export function useCardsSync(wallId: string) {
     })
 
     return unsub
-  }, [wallId, isAnonymous, debounce])
+  }, [wallId, debounce])
 
   // ── Delete ────────────────────────────────────────────────────────────────
   const deleteCard = useCallback(async (id: string): Promise<void> => {
     _deleteLocal(id)
-    if (isAnon) {
+    if (getIsAnon()) {
       localDeleteCard(id)
     } else {
       removeCard(id).catch(console.error)
     }
-  }, [_deleteLocal, isAnonymous])
+  }, [_deleteLocal])
 
   return { loading, error, deleteCard }
 }

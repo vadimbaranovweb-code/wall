@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useWallsStore } from '@/stores/wallsStore'
+import { useAuthStore }  from '@/stores/authStore'
 import { useBoardStore } from '@/stores/boardStore'
-import { useCardsStore } from '@/stores/cardsStore'
 import { useCardsSync }  from '@/hooks/useCardsSync'
 import { Board }         from '@/features/board/Board'
 import { AnonBanner }    from '@/components/AnonBanner'
@@ -13,6 +13,7 @@ export function WallPage() {
   const navigate    = useNavigate()
   const wall        = useWallsStore(s => s.getWall(wallId ?? ''))
   const isLoaded    = useWallsStore(s => s.isLoaded)
+  const authLoading = useAuthStore(s => s.loading)
   const resetCamera = useBoardStore(s => s.resetCamera)
   const selectCard  = useBoardStore(s => s.selectCard)
 
@@ -25,11 +26,12 @@ export function WallPage() {
     selectCard(null)
   }, [wallId]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Если стены загружены но текущая не найдена — редирект на главную
+  // Редирект только когда и auth и walls загружены
   useEffect(() => {
+    if (authLoading) return
     if (!isLoaded) return
     if (!wall) navigate('/', { replace: true })
-  }, [isLoaded, wall, navigate])
+  }, [authLoading, isLoaded, wall, navigate])
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -53,7 +55,8 @@ export function WallPage() {
     return () => window.removeEventListener('keydown', handler)
   }, [selectCard, resetCamera])
 
-  if (!wall) {
+  // Показываем спиннер пока грузится auth или стены
+  if (authLoading || !isLoaded || !wall) {
     return (
       <div className="min-h-screen bg-canvas flex items-center justify-center">
         <div className="w-6 h-6 border-2 border-ink-10 border-t-ink-60

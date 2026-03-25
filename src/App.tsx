@@ -7,32 +7,26 @@ import { useWallsStore } from '@/stores/wallsStore'
 import { useWallsSync }  from '@/hooks/useWallsSync'
 import { supabase }      from '@/lib/supabase'
 
-const LAST_WALL_KEY = 'stena:lastWallId'
-
 function HomeRedirect() {
-  const navigate   = useNavigate()
-  const walls      = useWallsStore(s => s.walls)
-  const isLoaded   = useWallsStore(s => s.isLoaded)
+  const navigate       = useNavigate()
+  const walls          = useWallsStore(s => s.walls)
+  const isLoaded       = useWallsStore(s => s.isLoaded)
   const { createWall } = useWallsSync()
 
   useEffect(() => {
     if (!isLoaded) return
 
-    // Проверяем сохранённый wallId
-    const savedWallId = localStorage.getItem(LAST_WALL_KEY)
+    const savedWallId = localStorage.getItem('stena:lastWallId')
     const savedWall   = savedWallId ? walls.find(w => w.id === savedWallId) : null
 
     if (savedWall) {
-      // Есть сохранённая стена — открываем её
       navigate(`/walls/${savedWall.id}`, { replace: true })
     } else if (walls.length > 0) {
-      // Нет сохранённой но есть другие — открываем последнюю
       const last = [...walls].sort((a, b) => b.updatedAt - a.updatedAt)[0]
       navigate(`/walls/${last.id}`, { replace: true })
     } else {
-      // Нет стен — создаём дефолтную
       createWall('Моя стена', 'teal').then(wall => {
-        localStorage.setItem(LAST_WALL_KEY, wall.id)
+        localStorage.setItem('stena:lastWallId', wall.id)
         navigate(`/walls/${wall.id}`, { replace: true })
       })
     }
@@ -47,31 +41,18 @@ function HomeRedirect() {
 }
 
 export function App() {
-  const { user, loading, setSession, setLoading } = useAuthStore()
+  const { user, loading, setSession, setLoading, setAnonymous } = useAuthStore()
 
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (session) {
-        setSession(session)
-        setLoading(false)
-        return
-      }
-
-      // Нет сессии — создаём анонимную
-      try {
-        const { data, error } = await supabase.auth.signInAnonymously()
-        if (error) throw error
-        setSession(data.session)
-      } catch (e) {
-        console.error('Anonymous sign-in failed:', e)
-      } finally {
-        setLoading(false)
-      }
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session)
+      setLoading(false)
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         setSession(session)
+        setLoading(false)
       }
     )
 
@@ -87,20 +68,15 @@ export function App() {
     )
   }
 
-  if (!user) {
-    return (
-      <div className="min-h-screen bg-canvas flex items-center justify-center">
-        <div className="w-6 h-6 border-2 border-ink-10 border-t-ink-60
-                        rounded-full animate-spin" />
-      </div>
-    )
-  }
-
   return (
     <ErrorBoundary>
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<HomeRedirect />} />
+          <Route path="/" element={
+            user
+              ? <HomeRedirect />
+              : <AnonHomeRedirect />
+          } />
           <Route path="/walls/:wallId" element={
             <ErrorBoundary><WallPage /></ErrorBoundary>
           } />
@@ -108,5 +84,39 @@ export function App() {
         </Routes>
       </BrowserRouter>
     </ErrorBoundary>
+  )
+}
+
+// Для неавторизованных — сразу в локальную стену
+function AnonHomeRedirect() {
+  const navigate       = useNavigate()
+  const walls          = useWallsStore(s => s.walls)
+  const isLoaded       = useWallsStore(s => s.isLoaded)
+  const { createWall } = useWallsSync()
+
+  useEffect(() => {
+    if (!isLoaded) return
+
+    const savedWallId = localStorage.getItem('stena:lastWallId')
+    const savedWall   = savedWallId ? walls.find(w => w.id === savedWallId) : null
+
+    if (savedWall) {
+      navigate(`/walls/${savedWall.id}`, { replace: true })
+    } else if (walls.length > 0) {
+      const last = [...walls].sort((a, b) => b.updatedAt - a.updatedAt)[0]
+      navigate(`/walls/${last.id}`, { replace: true })
+    } else {
+      createWall('Моя стена', 'teal').then(wall => {
+        localStorage.setItem('stena:lastWallId', wall.id)
+        navigate(`/walls/${wall.id}`, { replace: true })
+      })
+    }
+  }, [isLoaded, walls.length]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  return (
+    <div className="min-h-screen bg-canvas flex items-center justify-center">
+      <div className="w-6 h-6 border-2 border-ink-10 border-t-ink-60
+                      rounded-full animate-spin" />
+    </div>
   )
 }

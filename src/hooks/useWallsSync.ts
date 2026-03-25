@@ -1,15 +1,8 @@
-/**
- * useWallsSync
- *
- * Loads walls from Supabase on mount and keeps the Zustand store in sync.
- * Also wraps CRUD operations so every action writes to both Supabase and the store.
- *
- * Usage: call once at the top of WallListPage.
- */
-
 import { useEffect, useState, useCallback } from 'react'
 import { useWallsStore } from '@/stores/wallsStore'
+import { useAuthStore }  from '@/stores/authStore'
 import { fetchWalls, insertWall, patchWall, removeWall } from '@/api/walls.api'
+import { localGetWalls, localSaveWalls } from '@/lib/localStore'
 import type { Wall, WallColor } from '@/types'
 
 export function useWallsSync() {
@@ -20,6 +13,7 @@ export function useWallsSync() {
   const _createLocal = useWallsStore(s => s.createWall)
   const _updateLocal = useWallsStore(s => s.updateWall)
   const _deleteLocal = useWallsStore(s => s.deleteWall)
+  const isAnonymous  = useAuthStore(s => s.isAnonymous)
 
   // ── Initial load ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -27,34 +21,60 @@ export function useWallsSync() {
     setLoading(true)
     setError(null)
 
-    fetchWalls()
-      .then(walls => { if (!cancelled) { setWalls(walls); setLoading(false) } })
-      .catch(err  => { if (!cancelled) { setError(err.message); setLoading(false) } })
+    if (isAnonymous) {
+      // Аноним — читаем из localStorage
+      const walls = localGetWalls()
+      if (!cancelled) {
+        setWalls(walls)
+        setLoading(false)
+      }
+    } else {
+      // Авторизован — читаем из Supabase
+      fetchWalls()
+        .then(walls => { if (!cancelled) { setWalls(walls); setLoading(false) } })
+        .catch(err  => { if (!cancelled) { setError(err.message); setLoading(false) } })
+    }
 
     return () => { cancelled = true }
-  }, [setWalls])
+  }, [isAnonymous, setWalls])
+
+  // ── Синк стора в localStorage для анонима ────────────────────────────────
+  useEffect(() => {
+    if (!isAnonymous) return
+    const unsub = useWallsStore.subscribe(state => {
+      localSaveWalls(state.walls)
+    })
+    return unsub
+  }, [isAnonymous])
 
   // ── Synced actions ────────────────────────────────────────────────────────
   const createWall = useCallback(async (name: string, color: WallColor): Promise<Wall> => {
-    // 1. Write to local store immediately (optimistic)
     const wall = _createLocal(name, color)
-    // 2. Persist to Supabase in background
-    insertWall(wall).catch(console.error)
+
+    if (!isAnonymous) {
+      insertWall(wall).catch(console.error)
+    }
+    // Для анонима — useEffect выше сохранит через subscribe
+
     return wall
-  }, [_createLocal])
+  }, [_createLocal, isAnonymous])
 
   const updateWall = useCallback(async (
     id: string,
     patch: Partial<Pick<Wall, 'name' | 'color'>>
   ): Promise<void> => {
     _updateLocal(id, patch)
-    patchWall(id, patch).catch(console.error)
-  }, [_updateLocal])
+    if (!isAnonymous) {
+      patchWall(id, patch).catch(console.error)
+    }
+  }, [_updateLocal, isAnonymous])
 
   const deleteWall = useCallback(async (id: string): Promise<void> => {
     _deleteLocal(id)
-    removeWall(id).catch(console.error)
-  }, [_deleteLocal])
+    if (!isAnonymous) {
+      removeWall(id).catch(console.error)
+    }
+  }, [_deleteLocal, isAnonymous])
 
   return { loading, error, createWall, updateWall, deleteWall }
 }

@@ -4,6 +4,7 @@ import { useWallsStore } from '@/stores/wallsStore'
 import { useAuthStore }  from '@/stores/authStore'
 import { useBoardStore } from '@/stores/boardStore'
 import { useCardsSync }  from '@/hooks/useCardsSync'
+import { useWallsSync }  from '@/hooks/useWallsSync'
 import { Board }         from '@/features/board/Board'
 import { AnonBanner }    from '@/components/AnonBanner'
 import { WallSidebar }   from '@/features/sidebar/WallSidebar'
@@ -19,6 +20,7 @@ export function WallPage() {
 
   const [sidebarOpen, setSidebarOpen] = useState(true)
 
+  useWallsSync() // загружаем стены при прямом заходе на /walls/:id
   useCardsSync(wallId ?? '')
 
   useEffect(() => {

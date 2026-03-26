@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react'
+
 import { createPortal } from 'react-dom'
 import { useBoardStore } from '@/stores/boardStore'
 import { useCardsStore } from '@/stores/cardsStore'
@@ -10,6 +10,7 @@ import { TextCard }  from './TextCard'
 import { ImageCard } from './ImageCard'
 import { LinkCard }  from './LinkCard'
 import { VoiceCard } from './VoiceCard'
+import React, { useState, useRef, useEffect, useCallback } from 'react'
 
 import type { Card } from '@/types'
 
@@ -23,6 +24,15 @@ export const CardShell = React.memo(({ cardId }: Props) => {
   const [menuOpen,    setMenuOpen]    = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
+  const CARD_COLORS = [
+    { hex: null,      label: 'Белый'       },
+    { hex: '#FEF9C3', label: 'Жёлтый'     },
+    { hex: '#DCFCE7', label: 'Зелёный'    },
+    { hex: '#FEE2E2', label: 'Красный'    },
+    { hex: '#DBEAFE', label: 'Синий'      },
+    { hex: '#EDE9FE', label: 'Фиолетовый' },
+    { hex: '#F3F4F6', label: 'Серый'      },
+  ]
 
   const x = useCardsStore(s => {
     const dp = s.dragPositions instanceof Map
@@ -56,10 +66,16 @@ export const CardShell = React.memo(({ cardId }: Props) => {
   )
   const card = useCardsStore(s => s.cards.find(c => c.id === cardId))
 
-  const isSelected = useBoardStore(s => s.selectedCardId === cardId)
-  const isEditing  = useBoardStore(s => s.editingCardId  === cardId)
-  const selectCard = useBoardStore(s => s.selectCard)
-  const deleteCard = useCardsStore(s => s.deleteCard)
+  const isSelected  = useBoardStore(s => s.selectedCardId === cardId)
+  const isEditing   = useBoardStore(s => s.editingCardId  === cardId)
+  const selectCard  = useBoardStore(s => s.selectCard)
+  const deleteCard  = useCardsStore(s => s.deleteCard)
+  const updateColor = useCardsStore(s => s.updateColor)
+
+  const handleColorChange = useCallback((hex: string | null) => {
+    updateColor(cardId, hex)
+    setMenuOpen(false)
+  }, [cardId, updateColor])
 
   const { onMouseDown }       = useDrag(cardId)
   const { onResizeMouseDown } = useResize(cardId)
@@ -103,6 +119,7 @@ export const CardShell = React.memo(({ cardId }: Props) => {
             : isHovered
             ? '0 8px 24px rgba(26,24,20,0.10), 0 2px 8px rgba(26,24,20,0.07)'
             : '0 2px 8px rgba(26,24,20,0.07), 0 1px 3px rgba(26,24,20,0.05)',
+            backgroundColor: card.colorHex ?? '#FFFFFF',
           contain:    'layout paint',
           willChange: isDragging ? 'transform, left, top' : 'auto',
           cursor: isEditing ? 'text' : isDragging ? 'grabbing' : 'grab',
@@ -145,15 +162,46 @@ export const CardShell = React.memo(({ cardId }: Props) => {
               </svg>
             </button>
 
-            {/* Dropdown menu */}
-            {menuOpen && (
+          {/* Dropdown menu */}
+          {menuOpen && (
               <div
                 className="absolute top-8 right-0 z-30
                            bg-card border border-ink-10 rounded-xl
-                           shadow-card-hover py-1 min-w-[140px]
+                           shadow-card-hover py-1 min-w-[160px]
                            animate-fade-in"
                 onMouseDown={e => e.stopPropagation()}
               >
+                {/* Color picker */}
+                <div className="px-3 py-2 border-b border-ink-10">
+                  <p className="text-[10px] text-ink-30 uppercase tracking-wider mb-2">
+                    Цвет
+                  </p>
+                  <div className="flex gap-1.5 flex-wrap">
+                    {CARD_COLORS.map(c => (
+                      <button
+                        key={c.hex ?? 'white'}
+                        className="w-5 h-5 rounded-full border border-ink-10
+                                   hover:scale-110 transition-transform duration-100
+                                   flex items-center justify-center"
+                        style={{ background: c.hex ?? '#FFFFFF' }}
+                        onClick={e => {
+                          e.stopPropagation()
+                          handleColorChange(c.hex)
+                        }}
+                        title={c.label}
+                      >
+                        {card.colorHex === c.hex && (
+                          <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+                            <path d="M1 4l2 2 4-4" stroke={c.hex ? '#374151' : '#374151'}
+                                  strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Delete */}
                 <button
                   className="w-full flex items-center gap-2.5 px-3 py-2
                              text-sm text-red-500 hover:bg-red-50

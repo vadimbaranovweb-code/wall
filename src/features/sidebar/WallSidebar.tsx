@@ -35,22 +35,34 @@ export function WallSidebar({ isOpen, onToggle }: Props) {
   const navigate   = useNavigate()
   const { wallId } = useParams<{ wallId: string }>()
   const walls      = useWallsStore(s => s.walls)
-  const { user, signOut }            = useAuthStore()
+  const { user, signOut }                      = useAuthStore()
   const { createWall, updateWall, deleteWall } = useWallsSync()
 
-  const [search,       setSearch]       = useState('')
-  const [createOpen,   setCreateOpen]   = useState(false)
-  const [newName,      setNewName]      = useState('')
-  const [newColor,     setNewColor]     = useState<WallColor>('teal')
-  const [profileOpen,  setProfileOpen]  = useState(false)
-  const [hoveredWall,  setHoveredWall]  = useState<string | null>(null)
-  const [wallMenuId,   setWallMenuId]   = useState<string | null>(null)
-  const [renamingId,   setRenamingId]   = useState<string | null>(null)
-  const [renameValue,  setRenameValue]  = useState('')
+  const [search,          setSearch]          = useState('')
+  const [createOpen,      setCreateOpen]      = useState(false)
+  const [newName,         setNewName]         = useState('')
+  const [newColor,        setNewColor]        = useState<WallColor>('teal')
+  const [profileOpen,     setProfileOpen]     = useState(false)
+  const [hoveredWall,     setHoveredWall]     = useState<string | null>(null)
+  const [wallMenuId,      setWallMenuId]      = useState<string | null>(null)
+  const [renamingId,      setRenamingId]      = useState<string | null>(null)
+  const [renameValue,     setRenameValue]     = useState('')
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
 
-  const profileRef = useRef<HTMLDivElement>(null)
+  const profileRef  = useRef<HTMLDivElement>(null)
   const wallMenuRef = useRef<HTMLDivElement>(null)
+
+  const isAnonymous = user?.is_anonymous ?? true
+  const initials    = user?.email?.slice(0, 1).toUpperCase() ?? 'U'
+  const displayName = user?.user_metadata?.full_name ?? user?.email ?? ''
+  const email       = user?.email ?? ''
+
+  const handleGoogleLogin = async () => {
+    await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: `${window.location.origin}/` },
+    })
+  }
 
   // Закрывать profile меню при клике снаружи
   useEffect(() => {
@@ -78,6 +90,12 @@ export function WallSidebar({ isOpen, onToggle }: Props) {
 
   const handleCreate = async () => {
     if (!newName.trim()) return
+    if (isAnonymous) {
+      setCreateOpen(false)
+      setNewName('')
+      handleGoogleLogin()
+      return
+    }
     const wall = await createWall(newName.trim(), newColor)
     setCreateOpen(false)
     setNewName('')
@@ -96,18 +114,6 @@ export function WallSidebar({ isOpen, onToggle }: Props) {
   const filtered = walls.filter(w =>
     w.name.toLowerCase().includes(search.toLowerCase())
   )
-
-  const isAnonymous = user?.is_anonymous ?? false
-  const initials    = user?.email?.slice(0, 1).toUpperCase() ?? 'U'
-
-  const handleGoogleLogin = async () => {
-    await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: `${window.location.origin}/` },
-    })
-  }
-  const displayName = user?.user_metadata?.full_name ?? user?.email ?? ''
-  const email       = user?.email ?? ''
 
   return (
     <>
@@ -150,7 +156,7 @@ export function WallSidebar({ isOpen, onToggle }: Props) {
               className="w-full flex items-center gap-2 px-3 py-2 rounded-lg
                          text-ink-60 hover:text-ink hover:bg-ink-10
                          transition-colors duration-100 text-sm"
-              onClick={() => setCreateOpen(true)}
+              onClick={() => isAnonymous ? handleGoogleLogin() : setCreateOpen(true)}
             >
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                 <path d="M7 2v10M2 7h10" stroke="currentColor"
@@ -205,7 +211,7 @@ export function WallSidebar({ isOpen, onToggle }: Props) {
                 key={wall.id}
                 className="relative"
                 onMouseEnter={() => setHoveredWall(wall.id)}
-                onMouseLeave={() => { setHoveredWall(null) }}
+                onMouseLeave={() => setHoveredWall(null)}
                 ref={wallMenuId === wall.id ? wallMenuRef : undefined}
               >
                 {renamingId === wall.id ? (
@@ -238,8 +244,7 @@ export function WallSidebar({ isOpen, onToggle }: Props) {
                     />
                     <span className="truncate flex-1">{wall.name}</span>
 
-                    {/* Three dots button */}
-                    {(hoveredWall === wall.id || wallMenuId === wall.id) && (
+                    {(hoveredWall === wall.id || wallMenuId === wall.id) && !isAnonymous && (
                       <button
                         className="w-5 h-5 flex items-center justify-center
                                    rounded-md text-ink-30 hover:text-ink
@@ -260,7 +265,6 @@ export function WallSidebar({ isOpen, onToggle }: Props) {
                   </button>
                 )}
 
-                {/* Wall dropdown menu */}
                 {wallMenuId === wall.id && (
                   <div
                     className="absolute left-0 right-0 top-full z-50
@@ -313,13 +317,13 @@ export function WallSidebar({ isOpen, onToggle }: Props) {
             )}
           </div>
 
-        {/* ── Profile ─────────────────────────────────────────── */}
-        <div className="p-3 border-t border-ink-10 relative" ref={profileRef}>
+          {/* ── Profile ─────────────────────────────────────────── */}
+          <div className="p-3 border-t border-ink-10 relative" ref={profileRef}>
             {isAnonymous ? (
               <button
                 className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg
-                           bg-ink text-card text-sm font-medium
-                           hover:opacity-90 active:scale-95 transition-all"
+                           border border-ink-10 text-sm font-medium text-ink
+                           hover:bg-ink-10 active:scale-95 transition-all"
                 onClick={handleGoogleLogin}
               >
                 <svg width="14" height="14" viewBox="0 0 18 18" fill="none" className="flex-shrink-0">
@@ -331,48 +335,50 @@ export function WallSidebar({ isOpen, onToggle }: Props) {
                 Войти через Google
               </button>
             ) : (
-            <button
-              className="w-full flex items-center gap-2.5 px-2 py-2 rounded-lg
-                         hover:bg-ink-10 transition-colors duration-100"
-              onClick={() => setProfileOpen(v => !v)}
-            >
-              <div className="w-7 h-7 rounded-full bg-ink flex items-center
-                              justify-center flex-shrink-0">
-                <span className="text-card text-xs font-semibold">{initials}</span>
-              </div>
-              <div className="flex-1 min-w-0 text-left">
-                <p className="text-xs font-medium text-ink truncate">{displayName}</p>
-                <p className="text-[10px] text-ink-30 truncate">{email}</p>
-              </div>
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="none"
-                   className="text-ink-30 flex-shrink-0">
-                <path d="M2 4l4 4 4-4" stroke="currentColor"
-                      strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </button>
-            )}
-
-            {profileOpen && (
-              <div className="absolute bottom-16 left-3 right-3 z-50
-                              bg-card border border-ink-10 rounded-xl
-                              shadow-card-hover py-1 animate-fade-in">
-                <div className="px-3 py-2 border-b border-ink-10">
-                  <p className="text-xs text-ink-30 truncate">{email}</p>
-                </div>
+              <>
                 <button
-                  className="w-full flex items-center gap-2.5 px-3 py-2
-                             text-sm text-ink-60 hover:bg-ink-10
-                             transition-colors duration-100 text-left"
-                  onClick={() => { setProfileOpen(false); signOut() }}
+                  className="w-full flex items-center gap-2.5 px-2 py-2 rounded-lg
+                             hover:bg-ink-10 transition-colors duration-100"
+                  onClick={() => setProfileOpen(v => !v)}
                 >
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                    <path d="M5 12H3a1 1 0 01-1-1V3a1 1 0 011-1h2M9 10l3-3-3-3M12 7H5"
-                          stroke="currentColor" strokeWidth="1.3"
-                          strokeLinecap="round" strokeLinejoin="round"/>
+                  <div className="w-7 h-7 rounded-full bg-ink flex items-center
+                                  justify-center flex-shrink-0">
+                    <span className="text-card text-xs font-semibold">{initials}</span>
+                  </div>
+                  <div className="flex-1 min-w-0 text-left">
+                    <p className="text-xs font-medium text-ink truncate">{displayName}</p>
+                    <p className="text-[10px] text-ink-30 truncate">{email}</p>
+                  </div>
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none"
+                       className="text-ink-30 flex-shrink-0">
+                    <path d="M2 4l4 4 4-4" stroke="currentColor"
+                          strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
-                  Выйти
                 </button>
-              </div>
+
+                {profileOpen && (
+                  <div className="absolute bottom-16 left-3 right-3 z-50
+                                  bg-card border border-ink-10 rounded-xl
+                                  shadow-card-hover py-1 animate-fade-in">
+                    <div className="px-3 py-2 border-b border-ink-10">
+                      <p className="text-xs text-ink-30 truncate">{email}</p>
+                    </div>
+                    <button
+                      className="w-full flex items-center gap-2.5 px-3 py-2
+                                 text-sm text-ink-60 hover:bg-ink-10
+                                 transition-colors duration-100 text-left"
+                      onClick={() => { setProfileOpen(false); signOut() }}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                        <path d="M5 12H3a1 1 0 01-1-1V3a1 1 0 011-1h2M9 10l3-3-3-3M12 7H5"
+                              stroke="currentColor" strokeWidth="1.3"
+                              strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                      Выйти
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>

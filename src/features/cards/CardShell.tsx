@@ -1,4 +1,4 @@
-
+import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useBoardStore } from '@/stores/boardStore'
 import { useCardsStore } from '@/stores/cardsStore'
@@ -10,7 +10,6 @@ import { TextCard }  from './TextCard'
 import { ImageCard } from './ImageCard'
 import { LinkCard }  from './LinkCard'
 import { VoiceCard } from './VoiceCard'
-import React, { useState, useRef, useEffect, useCallback } from 'react'
 
 import type { Card } from '@/types'
 
@@ -19,20 +18,21 @@ interface Props { cardId: string }
 type DragMap   = Map<string, { x: number; y: number; zIndex: number }>
 type ResizeMap = Map<string, { width: number; height: number }>
 
+const CARD_COLORS = [
+  { hex: null,      label: 'Белый'       },
+  { hex: '#FEF9C3', label: 'Жёлтый'     },
+  { hex: '#DCFCE7', label: 'Зелёный'    },
+  { hex: '#FEE2E2', label: 'Красный'    },
+  { hex: '#DBEAFE', label: 'Синий'      },
+  { hex: '#EDE9FE', label: 'Фиолетовый' },
+  { hex: '#F3F4F6', label: 'Серый'      },
+]
+
 export const CardShell = React.memo(({ cardId }: Props) => {
   const [isHovered,   setIsHovered]   = useState(false)
   const [menuOpen,    setMenuOpen]    = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
-  const CARD_COLORS = [
-    { hex: null,      label: 'Белый'       },
-    { hex: '#FEF9C3', label: 'Жёлтый'     },
-    { hex: '#DCFCE7', label: 'Зелёный'    },
-    { hex: '#FEE2E2', label: 'Красный'    },
-    { hex: '#DBEAFE', label: 'Синий'      },
-    { hex: '#EDE9FE', label: 'Фиолетовый' },
-    { hex: '#F3F4F6', label: 'Серый'      },
-  ]
 
   const x = useCardsStore(s => {
     const dp = s.dragPositions instanceof Map
@@ -80,7 +80,6 @@ export const CardShell = React.memo(({ cardId }: Props) => {
   const { onMouseDown }       = useDrag(cardId)
   const { onResizeMouseDown } = useResize(cardId)
 
-  // Закрывать меню при клике снаружи
   useEffect(() => {
     if (!menuOpen) return
     const handler = (e: MouseEvent) => {
@@ -108,7 +107,7 @@ export const CardShell = React.memo(({ cardId }: Props) => {
           width,
           height,
           zIndex,
-          transform: isSelected ? 'none' : `rotate(${rotation}deg)`,
+          transform: isSelected ? 'none' : 'rotate(' + rotation + 'deg)',
           transition: isDragging
             ? 'none'
             : 'transform 0.15s ease, box-shadow 0.2s ease',
@@ -119,7 +118,6 @@ export const CardShell = React.memo(({ cardId }: Props) => {
             : isHovered
             ? '0 8px 24px rgba(26,24,20,0.10), 0 2px 8px rgba(26,24,20,0.07)'
             : '0 2px 8px rgba(26,24,20,0.07), 0 1px 3px rgba(26,24,20,0.05)',
-            backgroundColor: card.colorHex ?? '#FFFFFF',
           contain:    'layout paint',
           willChange: isDragging ? 'transform, left, top' : 'auto',
           cursor: isEditing ? 'text' : isDragging ? 'grabbing' : 'grab',
@@ -135,18 +133,19 @@ export const CardShell = React.memo(({ cardId }: Props) => {
           if (e.key === 'Escape') selectCard(null)
         }}
       >
-        {/* Card background */}
-        <div className="absolute inset-0 rounded-card bg-card border border-ink-10 overflow-hidden">
+        <div
+          className="absolute inset-0 rounded-card border border-ink-10 overflow-hidden"
+          style={{ backgroundColor: card.colorHex ?? '#FFFFFF' }}
+        >
           <CardContent card={card} />
         </div>
 
-        {/* Three dots menu button */}
         {showControls && (
           <div ref={menuRef} className="absolute top-2 right-2 z-20">
             <button
               className="w-6 h-6 rounded-md flex items-center justify-center
-                         bg-card/80 backdrop-blur-sm border border-ink-10
-                         text-ink-30 hover:text-ink hover:bg-card
+                         bg-white/80 backdrop-blur-sm border border-ink-10
+                         text-ink-30 hover:text-ink hover:bg-white
                          transition-all duration-100 shadow-sm"
               onMouseDown={e => e.stopPropagation()}
               onClick={e => {
@@ -162,8 +161,7 @@ export const CardShell = React.memo(({ cardId }: Props) => {
               </svg>
             </button>
 
-          {/* Dropdown menu */}
-          {menuOpen && (
+            {menuOpen && (
               <div
                 className="absolute top-8 right-0 z-30
                            bg-card border border-ink-10 rounded-xl
@@ -171,7 +169,6 @@ export const CardShell = React.memo(({ cardId }: Props) => {
                            animate-fade-in"
                 onMouseDown={e => e.stopPropagation()}
               >
-                {/* Color picker */}
                 <div className="px-3 py-2 border-b border-ink-10">
                   <p className="text-[10px] text-ink-30 uppercase tracking-wider mb-2">
                     Цвет
@@ -192,7 +189,7 @@ export const CardShell = React.memo(({ cardId }: Props) => {
                       >
                         {card.colorHex === c.hex && (
                           <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
-                            <path d="M1 4l2 2 4-4" stroke={c.hex ? '#374151' : '#374151'}
+                            <path d="M1 4l2 2 4-4" stroke="#374151"
                                   strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                           </svg>
                         )}
@@ -201,7 +198,6 @@ export const CardShell = React.memo(({ cardId }: Props) => {
                   </div>
                 </div>
 
-                {/* Delete */}
                 <button
                   className="w-full flex items-center gap-2.5 px-3 py-2
                              text-sm text-red-500 hover:bg-red-50
@@ -224,7 +220,6 @@ export const CardShell = React.memo(({ cardId }: Props) => {
           </div>
         )}
 
-        {/* Resize handle */}
         {isSelected && !isEditing && (
           <div
             className="absolute bottom-0 right-0 w-6 h-6 z-10
@@ -240,7 +235,6 @@ export const CardShell = React.memo(({ cardId }: Props) => {
         )}
       </div>
 
-      {/* Confirm delete modal — через portal чтобы не обрезалось */}
       {confirmOpen && createPortal(
         <div
           style={{

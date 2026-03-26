@@ -69,6 +69,7 @@ interface CardsState {
 
   // Updates
   updateContent:    (id: string, content: string) => void
+  updateColor:      (id: string, colorHex: string | null) => void
   updateLinkMeta:   (id: string, meta: Partial<Pick<LinkCard, 'title' | 'description' | 'ogImageUrl' | 'faviconUrl' | 'fetchState'>>) => void
   updateTranscript: (id: string, transcript: string) => void
   deleteCard:       (id: string) => void
@@ -167,6 +168,12 @@ export const useCardsStore = create<CardsState>()((set, get) => ({
         c.id === id ? { ...c, content, updatedAt: Date.now() } : c
       ),
     })),
+    updateColor: (id, colorHex) =>
+      set(s => ({
+        cards: s.cards.map(c =>
+          c.id === id ? { ...c, colorHex: colorHex ?? undefined, updatedAt: Date.now() } : c
+        ),
+      })),
 
   updateLinkMeta: (id, meta) =>
     set(s => ({

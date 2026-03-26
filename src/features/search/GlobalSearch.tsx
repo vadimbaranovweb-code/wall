@@ -104,7 +104,21 @@ export function GlobalSearch({ isOpen, onClose }: Props) {
 
   const handleSelect = useCallback((result: SearchResult) => {
     navigate(`/walls/${result.wallId}`)
-    setTimeout(() => selectCard(result.card.id), 100)
+    setTimeout(() => {
+      selectCard(result.card.id)
+
+      // Зумим камеру на карточку
+      const card = useCardsStore.getState().cards.find(c => c.id === result.card.id)
+      if (!card) return
+
+      const vpW = window.innerWidth
+      const vpH = window.innerHeight
+      const zoom = 1
+      const x = vpW / 2 - (card.x + card.width  / 2) * zoom
+      const y = vpH / 2 - (card.y + card.height / 2) * zoom
+
+      useBoardStore.getState().setCamera({ x, y, zoom })
+    }, 150)
     onClose()
   }, [navigate, selectCard, onClose])
 

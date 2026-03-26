@@ -41,7 +41,7 @@ export function WallSidebar({ isOpen, onToggle, onSearchOpen }: Props) {
   const { user, signOut }                      = useAuthStore()
   const { createWall, updateWall, deleteWall } = useWallsSync()
 
-  const [search,          setSearch]          = useState('')
+
   const [createOpen,      setCreateOpen]      = useState(false)
   const [newName,         setNewName]         = useState('')
   const [newColor,        setNewColor]        = useState<WallColor>('teal')
@@ -114,9 +114,7 @@ export function WallSidebar({ isOpen, onToggle, onSearchOpen }: Props) {
     setRenameValue('')
   }
 
-  const filtered = walls.filter(w =>
-    w.name.toLowerCase().includes(search.toLowerCase())
-  )
+  const filtered = walls
 
   return (
     <>
@@ -188,36 +186,7 @@ export function WallSidebar({ isOpen, onToggle, onSearchOpen }: Props) {
             </button>
           </div>
 
-          {/* ── Search ──────────────────────────────────────────── */}
-          <div className="px-3 mb-3">
-            <div className="flex items-center gap-2 px-3 py-2 rounded-lg
-                            border border-ink-10 bg-card">
-              <svg width="13" height="13" viewBox="0 0 13 13" fill="none"
-                   className="text-ink-30 flex-shrink-0">
-                <circle cx="5.5" cy="5.5" r="4" stroke="currentColor" strokeWidth="1.3"/>
-                <path d="M9 9L12 12" stroke="currentColor"
-                      strokeWidth="1.3" strokeLinecap="round"/>
-              </svg>
-              <input
-                className="flex-1 bg-transparent text-sm text-ink
-                           placeholder:text-ink-30 focus:outline-none"
-                placeholder="Поиск стен..."
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-              />
-              {search && (
-                <button
-                  className="text-ink-30 hover:text-ink transition-colors"
-                  onClick={() => setSearch('')}
-                >
-                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                    <path d="M1 1l8 8M9 1L1 9" stroke="currentColor"
-                          strokeWidth="1.3" strokeLinecap="round"/>
-                  </svg>
-                </button>
-              )}
-            </div>
-          </div>
+         
 
           {/* ── Walls list ──────────────────────────────────────── */}
           <div className="flex-1 overflow-y-auto px-3">
@@ -332,11 +301,7 @@ export function WallSidebar({ isOpen, onToggle, onSearchOpen }: Props) {
               </div>
             ))}
 
-            {search && filtered.length === 0 && (
-              <p className="text-xs text-ink-30 px-2 py-4 text-center">
-                Ничего не найдено
-              </p>
-            )}
+          
           </div>
 
           {/* ── Profile ─────────────────────────────────────────── */}

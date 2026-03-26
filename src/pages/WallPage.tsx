@@ -7,6 +7,7 @@ import { useCardsSync }  from '@/hooks/useCardsSync'
 import { useWallsSync }  from '@/hooks/useWallsSync'
 import { Board }         from '@/features/board/Board'
 import { AnonBanner }    from '@/components/AnonBanner'
+import { GlobalSearch }  from '@/features/search/GlobalSearch'
 import { WallSidebar }   from '@/features/sidebar/WallSidebar'
 
 export function WallPage() {
@@ -19,18 +20,17 @@ export function WallPage() {
   const selectCard  = useBoardStore(s => s.selectCard)
 
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [searchOpen,  setSearchOpen]  = useState(false)
 
-  useWallsSync() // загружаем стены при прямом заходе на /walls/:id
+  useWallsSync()
   useCardsSync(wallId ?? '')
 
   useEffect(() => {
     resetCamera()
     selectCard(null)
-    // Сохраняем текущую стену в localStorage
     if (wallId) localStorage.setItem('stena:lastWallId', wallId)
   }, [wallId]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Редирект только когда и auth и walls загружены
   useEffect(() => {
     if (authLoading) return
     if (!isLoaded) return
@@ -43,6 +43,7 @@ export function WallPage() {
       if (tag === 'TEXTAREA' || tag === 'INPUT') return
 
       if (e.key === 'Escape') {
+        if (searchOpen) { setSearchOpen(false); return }
         selectCard(null)
         useBoardStore.getState().stopEditing()
       }
@@ -54,12 +55,15 @@ export function WallPage() {
         e.preventDefault()
         setSidebarOpen(v => !v)
       }
+      if ((e.key === 'f' || e.key === 'k') && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault()
+        setSearchOpen(true)
+      }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [selectCard, resetCamera])
+  }, [selectCard, resetCamera, searchOpen])
 
-  // Показываем спиннер пока грузится auth или стены
   if (authLoading || !isLoaded || !wall) {
     return (
       <div className="min-h-screen bg-canvas flex items-center justify-center">
@@ -72,9 +76,11 @@ export function WallPage() {
   return (
     <div className="flex h-screen overflow-hidden">
       <AnonBanner />
+      <GlobalSearch isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
       <WallSidebar
         isOpen={sidebarOpen}
         onToggle={() => setSidebarOpen(v => !v)}
+        onSearchOpen={() => setSearchOpen(true)}
       />
       <div className="flex-1 overflow-hidden">
         <Board wallId={wall.id} />

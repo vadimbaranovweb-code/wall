@@ -26,12 +26,15 @@ const WALL_COLORS: { value: WallColor; bg: string; label: string }[] = [
   { value: 'lime',   bg: '#84CC16', label: 'Лаймовый'   },
 ]
 
+
+
 interface Props {
-  isOpen:   boolean
-  onToggle: () => void
+  isOpen:        boolean
+  onToggle:      () => void
+  onSearchOpen:  () => void
 }
 
-export function WallSidebar({ isOpen, onToggle }: Props) {
+export function WallSidebar({ isOpen, onToggle, onSearchOpen }: Props) {
   const navigate   = useNavigate()
   const { wallId } = useParams<{ wallId: string }>()
   const walls      = useWallsStore(s => s.walls)
@@ -163,6 +166,25 @@ export function WallSidebar({ isOpen, onToggle }: Props) {
                       strokeWidth="1.5" strokeLinecap="round"/>
               </svg>
               Новая стена
+            </button>
+          </div>
+
+          {/* ── Search button ───────────────────────────────────── */}
+          <div className="px-3 mb-2">
+            <button
+              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg
+                         text-ink-60 hover:text-ink hover:bg-ink-10
+                         transition-colors duration-100 text-sm"
+              onClick={onSearchOpen}
+            >
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <circle cx="6" cy="6" r="4.5" stroke="currentColor" strokeWidth="1.3"/>
+                <path d="M10 10L13 13" stroke="currentColor"
+                      strokeWidth="1.3" strokeLinecap="round"/>
+              </svg>
+              Поиск
+              <kbd className="ml-auto text-[9px] font-mono text-ink-20
+                              bg-ink-10 px-1 py-0.5 rounded">⌘F</kbd>
             </button>
           </div>
 

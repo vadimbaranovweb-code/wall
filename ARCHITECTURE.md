@@ -1,5 +1,5 @@
 # Wall — Architecture Documentation
-*Последнее обновление: 25 марта 2026*
+*Последнее обновление: 26 марта 2026*
 
 ## Что такое Wall
 Инструмент для быстрого захвата мыслей, ссылок и изображений в виде карточек на свободной доске. Не whiteboard, не Notion — быстрый brain dump tool.
@@ -12,7 +12,7 @@
 - **Frontend:** React 18 + TypeScript + Vite
 - **Стили:** Tailwind CSS
 - **Стейт:** Zustand
-- **База данных:** Supabase (PostgreSQL + Auth + Storage)
+- **База данных:** Supabase (PostgreSQL + Auth)
 - **Деплой:** Vercel
 - **ID генерация:** nanoid
 
@@ -21,59 +21,60 @@
 ## Структура проекта
 ```
 src/
-├── types/index.ts              # Все TypeScript типы
+├── types/index.ts                    # Все TypeScript типы
 ├── lib/
-│   ├── supabase.ts             # Supabase клиент + типы DB строк
-│   ├── mappers.ts              # DB rows ↔ app types конвертация
-│   ├── cn.ts                   # clsx + tailwind-merge хелпер
-│   ├── id.ts                   # nanoid wrapper
-│   └── imageUtils.ts           # Resize изображений, URL хелперы
+│   ├── supabase.ts                   # Supabase клиент + типы DB строк
+│   ├── mappers.ts                    # DB rows ↔ app types конвертация
+│   ├── localStore.ts                 # localStorage для анонимных пользователей
+│   ├── migrateAnonData.ts            # Миграция данных анонима → Supabase при логине
+│   ├── cn.ts                         # clsx + tailwind-merge хелпер
+│   ├── id.ts                         # nanoid wrapper
+│   └── imageUtils.ts                 # Resize изображений, URL хелперы
 │
-├── stores/                     # Zustand stores (глобальный стейт)
-│   ├── authStore.ts            # User, session, isAnonymous
-│   ├── boardStore.ts           # Камера (pan/zoom), selectedCardId
-│   ├── cardsStore.ts           # Карточки, drag/resize позиции
-│   ├── wallsStore.ts           # Стены CRUD
-│   └── toastStore.ts           # Toast уведомления
+├── stores/                           # Zustand stores (глобальный стейт)
+│   ├── authStore.ts                  # User, session, isAnonymous
+│   ├── boardStore.ts                 # Камера (pan/zoom), selectedCardId, fitCards
+│   ├── cardsStore.ts                 # Карточки, drag/resize позиции
+│   ├── wallsStore.ts                 # Стены CRUD
+│   └── toastStore.ts                 # Toast уведомления
 │
-├── api/                        # Прямые вызовы Supabase
-│   ├── auth.api.ts             # signIn, signOut, getUser
-│   ├── cards.api.ts            # CRUD карточек
-│   └── walls.api.ts            # CRUD стен
+├── api/                              # Прямые вызовы Supabase
+│   ├── auth.api.ts                   # signIn, signOut, getUser
+│   ├── cards.api.ts                  # CRUD карточек
+│   └── walls.api.ts                  # CRUD стен
 │
-├── hooks/                      # React хуки
-│   ├── useCardsSync.ts         # Загрузка карточек + autosave
-│   ├── useWallsSync.ts         # Загрузка стен + CRUD с синком
-│   ├── useBoard.ts             # Wheel zoom, pan, screenToCanvas
-│   ├── useCapture.ts           # Paste/drop pipeline
-│   ├── useDrag.ts              # Drag карточек
-│   ├── useResize.ts            # Resize карточек
-│   └── useVoiceRecorder.ts     # Запись голоса
+├── hooks/                            # React хуки
+│   ├── useCardsSync.ts               # Загрузка карточек + autosave (Supabase или localStorage)
+│   ├── useWallsSync.ts               # Загрузка стен + CRUD (Supabase или localStorage)
+│   ├── useBoard.ts                   # Wheel zoom, pan, screenToCanvas
+│   ├── useCapture.ts                 # Paste/drop pipeline
+│   ├── useDrag.ts                    # Drag карточек
+│   ├── useResize.ts                  # Resize карточек
+│   └── useVoiceRecorder.ts           # Запись голоса
 │
 ├── features/
 │   ├── board/
-│   │   ├── Board.tsx           # Viewport + CSS transform canvas
-│   │   └── DropZoneOverlay.tsx # Визуальный оверлей при drag-and-drop
+│   │   ├── Board.tsx                 # Viewport + CSS transform canvas + auto-fit
+│   │   └── DropZoneOverlay.tsx       # Визуальный оверлей при drag-and-drop
 │   ├── cards/
-│   │   ├── CardShell.tsx       # Обёртка карточки (drag, resize, меню)
-│   │   ├── TextCard.tsx        # Текстовая карточка
-│   │   ├── ImageCard.tsx       # Карточка с изображением
-│   │   ├── LinkCard.tsx        # Ссылка с превью
-│   │   └── VoiceCard.tsx       # Голосовая заметка
+│   │   ├── CardShell.tsx             # Обёртка карточки (drag, resize, три точки меню)
+│   │   ├── TextCard.tsx              # Текстовая карточка с переносом строк
+│   │   ├── ImageCard.tsx             # Карточка с изображением
+│   │   ├── LinkCard.tsx              # Ссылка с превью (OG meta)
+│   │   └── VoiceCard.tsx             # Голосовая заметка
 │   ├── sidebar/
-│   │   └── WallSidebar.tsx     # Сайдбар со списком стен
+│   │   └── WallSidebar.tsx           # Sidebar со стенами, поиском, профилем
 │   └── quick-add/
-│       └── QuickAddButton.tsx  # FAB кнопка + попап создания
+│       └── QuickAddButton.tsx        # FAB кнопка + попап создания карточек
 │
 ├── components/
-│   ├── AnonBanner.tsx          # Баннер для анонимных пользователей
-│   ├── AutosaveIndicator.tsx   # Индикатор сохранения
-│   ├── ErrorBoundary.tsx       # React error boundary
-│   └── ToastStack.tsx          # Toast уведомления UI
+│   ├── AnonBanner.tsx                # Баннер для анонимных пользователей
+│   ├── AutosaveIndicator.tsx         # Индикатор сохранения
+│   ├── ErrorBoundary.tsx             # React error boundary
+│   └── ToastStack.tsx                # Toast уведомления UI
 │
 └── pages/
-    ├── WallPage.tsx            # Страница стены (sidebar + board)
-    └── WallListPage.tsx        # УСТАРЕЛО — не используется
+    └── WallPage.tsx                  # Страница стены (sidebar + board)
 ```
 
 ---
@@ -105,10 +106,36 @@ type Card = TextCard | ImageCard | LinkCard | VoiceCard
 
 ### Схема cards
 ```sql
-id, wall_id, user_id, type, x, y, width, height, 
+id, wall_id, user_id, type, x, y, width, height,
 z_index, rotation, content (jsonb), color_hex,
 created_at, updated_at
 ```
+
+---
+
+## Auth флоу
+
+### Два режима работы
+
+**Анонимный пользователь (без логина):**
+- Данные хранятся в `localStorage` (ключи: `stena:anon:walls`, `stena:anon:cards`)
+- TTL: 3 дня с момента последней активности
+- `useWallsSync` и `useCardsSync` автоматически определяют режим через `getIsAnon()`
+- При создании стены — предлагаем войти через Google
+
+**Авторизованный пользователь:**
+- Данные в Supabase
+- Google OAuth через Supabase Auth
+- Сессия живёт бессрочно (autoRefreshToken: true)
+
+### Миграция при логине
+При событии `SIGNED_IN` в `App.tsx`:
+1. Проверяем есть ли данные в localStorage (`localHasData()`)
+2. Если есть — вызываем `migrateAnonDataToSupabase()`
+3. Если аккаунт пустой — вставляем стены и карточки как есть
+4. Если аккаунт не пустой — создаём стену "Новые" и кладём туда все карточки
+5. Очищаем localStorage
+6. Защита от двойной миграции через ключ `stena:migrated:{userId}`
 
 ---
 
@@ -120,15 +147,16 @@ Paste/Drop событие
   → useCapture.ts
   → определяем тип (image/url/text)
   → cardsStore.create*Card() — добавляем в стор
-  → useCardsSync.ts — автоматически вставляет в Supabase
+  → useCardsSync.ts — автоматически сохраняет (localStorage или Supabase)
 ```
 
 ### Autosave
 ```
 cardsStore изменился
   → useCardsSync подписан через zustand.subscribe
-  → debounce 600ms (позиция) / 1000ms (контент)
-  → patchCard*() → Supabase UPDATE
+  → getIsAnon() определяет куда сохранять
+  → Аноним: localSaveCard() сразу
+  → Авторизован: debounce 600ms → patchCard*() → Supabase UPDATE
 ```
 
 ### Drag карточки
@@ -140,24 +168,23 @@ MouseDown на CardShell
   → autosave подхватывает изменение
 ```
 
-### Камера (pan/zoom)
+### Auto-fit камеры
 ```
-Wheel событие → useBoard.ts → boardStore.zoomBy/panBy
-Space + drag → pan
-CSS transform: translate(x,y) scale(zoom) на canvas div
+Карточки загружены → Board.tsx useEffect
+  → boardStore.fitCards(cards, viewportW, viewportH)
+  → считает bounding box всех карточек
+  → выставляет zoom и позицию чтобы все влезли
+  → кнопка ⊡ вызывает то же самое вручную
 ```
 
----
-
-## Auth флоу
-
-### Текущий статус
-- Google OAuth через Supabase
-- Анонимные сессии включены (Supabase Anonymous Auth)
-- **Известная проблема:** при reload анонимная сессия пересоздаётся с новым user_id → старые данные недоступны из-за RLS
-
-### Планируемое решение
-Анонимные данные хранить в localStorage, при авторизации мигрировать в Supabase.
+### Навигация
+```
+Вход на сайт → App.tsx
+  → Supabase проверяет сессию (authLoading)
+  → Есть сессия → HomeRedirect → последняя стена из localStorage/Supabase
+  → Нет сессии → HomeRedirect → данные из localStorage → та же стена
+  → Нет данных → создаём "Моя стена" → открываем
+```
 
 ---
 
@@ -180,25 +207,32 @@ npm run dev
 
 ## Известные ограничения (MVP)
 
-1. **Images как base64** — изображения хранятся как base64 в Supabase JSONB. При большом количестве карточек с картинками БД раздуется. Нужно мигрировать на Supabase Storage.
-2. **Анонимный reload** — при перезагрузке анонимная сессия пересоздаётся, данные теряются.
-3. **Нет поиска** — поиск по карточкам запланирован.
-4. **Нет шаринга** — публичные read-only ссылки запланированы.
+1. **Images как base64** — изображения хранятся как base64 в Supabase JSONB. При большом количестве карточек с картинками БД раздуётся. Нужно мигрировать на Supabase Storage.
+2. **Нет поиска по карточкам** — поиск Cmd+F запланирован.
+3. **Нет шаринга** — публичные read-only ссылки запланированы.
+4. **Нет цвета карточек** — запланировано.
 
 ---
 
 ## Роадмап
 
-### P0 — текущий спринт
-- [x] Фикс 404 при reload
-- [x] Auto-fit карточек при входе
-- [x] Sidebar со стенами
-- [x] Меню карточки (три точки)
-- [x] Удаление с подтверждением
-- [x] Анонимный доступ (частично)
-- [ ] Анонимный localStorage флоу
+### ✅ Сделано
+- Фикс 404 при reload (vercel.json)
+- Auto-fit карточек при входе на стену
+- Кнопка ⊡ вернуть все в экран
+- Sidebar со стенами (скрываемый, ChatGPT стиль)
+- Поиск по стенам в sidebar
+- Три точки меню на карточке (удаление с подтверждением)
+- Перенос строк в текстовых карточках
+- Анонимный режим (localStorage, 3 дня)
+- Баннер для анонимов с призывом войти
+- Миграция данных анонима → Supabase при логине
+- Убран топбар, убрана страница списка стен
+- Сразу открывается последняя стена
+
+### P0 — следующий спринт
 - [ ] Цвет карточек
-- [ ] Поиск Cmd+F
+- [ ] Поиск Cmd+F по карточкам
 
 ### P1
 - [ ] Supabase Storage для изображений
@@ -208,8 +242,12 @@ npm run dev
 ### P2
 - [ ] Chrome плагин
 - [ ] Мобильная версия (PWA)
-- [ ] Шаринг стены
+- [ ] Шаринг стены (read-only ссылка)
+- [ ] Alt-копирование карточек
+- [ ] Перемещение карточек между стенами
+- [ ] Экспорт в PNG
 
 ### P3
 - [ ] Мобильное приложение
-- [ ] Multi-select
+- [ ] Multi-select + выравнивание
+- [ ] Сортировка карточек

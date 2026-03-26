@@ -5,7 +5,9 @@ import { WallPage }      from '@/pages/WallPage'
 import { useAuthStore }  from '@/stores/authStore'
 import { useWallsStore } from '@/stores/wallsStore'
 import { useWallsSync }  from '@/hooks/useWallsSync'
-import { supabase }      from '@/lib/supabase'
+import { supabase }             from '@/lib/supabase'
+import { migrateAnonDataToSupabase } from '@/lib/migrateAnonData'
+import { localHasData }         from '@/lib/localStore'
 
 function HomeRedirect() {
   const navigate       = useNavigate()
@@ -50,9 +52,23 @@ export function App() {
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
+      async (event, session) => {
         setSession(session)
         setLoading(false)
+
+        // При логине — мигрируем данные анонима если есть
+        if (event === 'SIGNED_IN' && session?.user && !session.user.is_anonymous) {
+          if (localHasData()) {
+            try {
+              const result = await migrateAnonDataToSupabase()
+              if (result.walls > 0) {
+                console.log(`Migrated ${result.walls} walls, ${result.cards} cards`)
+              }
+            } catch (e) {
+              console.error('Migration failed:', e)
+            }
+          }
+        }
       }
     )
 

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useAuthStore } from '@/stores/authStore'
 import { supabase } from '@/lib/supabase'
+import { localHasData } from '@/lib/localStore'
 
 export function AnonBanner() {
   const isAnonymous = useAuthStore(s => s.isAnonymous)
@@ -8,6 +9,8 @@ export function AnonBanner() {
   const [loading,   setLoading]   = useState(false)
 
   if (!isAnonymous || dismissed) return null
+
+  const hasData = localHasData()
 
   const handleLogin = async () => {
     setLoading(true)
@@ -22,7 +25,10 @@ export function AnonBanner() {
                     bg-ink text-card px-4 py-2.5
                     flex items-center justify-center gap-4">
       <p className="text-sm">
-        ⚡ Ваши заметки хранятся 3 дня. Войдите чтобы сохранить навсегда.
+        {hasData
+          ? '⚡ Войдите — ваши заметки перенесутся в аккаунт автоматически.'
+          : '⚡ Ваши заметки хранятся 3 дня. Войдите чтобы сохранить навсегда.'
+        }
       </p>
       <button
         className="flex items-center gap-2 px-3 py-1.5 rounded-lg

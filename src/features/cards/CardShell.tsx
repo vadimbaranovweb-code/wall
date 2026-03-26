@@ -163,10 +163,10 @@ export const CardShell = React.memo(({ cardId }: Props) => {
 
             {menuOpen && (
               <div
-                className="absolute top-8 right-0 z-30
-                           bg-card border border-ink-10 rounded-xl
-                           shadow-card-hover py-1 min-w-[160px]
-                           animate-fade-in"
+              className="absolute top-8 right-0 z-30
+              bg-card border border-ink-10 rounded-xl
+              shadow-card-hover py-1 w-[152px]
+              animate-fade-in"
                 onMouseDown={e => e.stopPropagation()}
               >
                 <div className="px-3 py-2 border-b border-ink-10">

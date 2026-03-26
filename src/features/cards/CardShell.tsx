@@ -32,7 +32,9 @@ export const CardShell = React.memo(({ cardId }: Props) => {
   const [isHovered,   setIsHovered]   = useState(false)
   const [menuOpen,    setMenuOpen]    = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
-  const menuRef = useRef<HTMLDivElement>(null)
+  const [menuPos,     setMenuPos]     = useState({ top: 0, right: 0 })
+  const menuBtnRef = useRef<HTMLButtonElement>(null)
+  const menuRef    = useRef<HTMLDivElement>(null)
 
   const x = useCardsStore(s => {
     const dp = s.dragPositions instanceof Map
@@ -142,7 +144,8 @@ export const CardShell = React.memo(({ cardId }: Props) => {
 
         {showControls && (
           <div ref={menuRef} className="absolute top-2 right-2 z-20">
-            <button
+           <button
+              ref={menuBtnRef}
               className="w-6 h-6 rounded-md flex items-center justify-center
                          bg-white/80 backdrop-blur-sm border border-ink-10
                          text-ink-30 hover:text-ink hover:bg-white
@@ -150,6 +153,13 @@ export const CardShell = React.memo(({ cardId }: Props) => {
               onMouseDown={e => e.stopPropagation()}
               onClick={e => {
                 e.stopPropagation()
+                if (!menuOpen && menuBtnRef.current) {
+                  const rect = menuBtnRef.current.getBoundingClientRect()
+                  setMenuPos({
+                    top:   rect.bottom + 4,
+                    right: window.innerWidth - rect.right,
+                  })
+                }
                 setMenuOpen(v => !v)
               }}
               title="Действия"
@@ -234,7 +244,69 @@ export const CardShell = React.memo(({ cardId }: Props) => {
           </div>
         )}
       </div>
-
+      {menuOpen && createPortal(
+        <div
+          ref={menuRef}
+          style={{
+            position: 'fixed',
+            top:   menuPos.top,
+            right: menuPos.right,
+            zIndex: 9998,
+          }}
+          className="bg-card border border-ink-10 rounded-xl
+                     shadow-card-hover py-1 w-[152px]
+                     animate-fade-in"
+          onMouseDown={e => e.stopPropagation()}
+        >
+          <div className="px-3 py-2 border-b border-ink-10">
+            <p className="text-[10px] text-ink-30 uppercase tracking-wider mb-2">
+              Цвет
+            </p>
+            <div className="flex gap-1.5 flex-wrap">
+              {CARD_COLORS.map(c => (
+                <button
+                  key={c.hex ?? 'white'}
+                  className="w-5 h-5 rounded-full border border-ink-10
+                             hover:scale-110 transition-transform duration-100
+                             flex items-center justify-center"
+                  style={{ background: c.hex ?? '#FFFFFF' }}
+                  onClick={e => {
+                    e.stopPropagation()
+                    handleColorChange(c.hex)
+                  }}
+                  title={c.label}
+                >
+                  {card.colorHex === c.hex && (
+                    <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+                      <path d="M1 4l2 2 4-4" stroke="#374151"
+                            strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+          <button
+            className="w-full flex items-center gap-2.5 px-3 py-2
+                       text-sm text-red-500 hover:bg-red-50
+                       transition-colors duration-100 text-left"
+            onClick={e => {
+              e.stopPropagation()
+              setMenuOpen(false)
+              setConfirmOpen(true)
+            }}
+          >
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+              <path d="M2 3.5H11M5 3.5V2.5H8V3.5M4.5 3.5V10.5H8.5V3.5"
+                    stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"
+                    strokeLinejoin="round"/>
+            </svg>
+            Удалить
+          </button>
+        </div>,
+        document.body
+      )}
+      
       {confirmOpen && createPortal(
         <div
           style={{

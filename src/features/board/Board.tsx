@@ -9,6 +9,7 @@ import { DropZoneOverlay }   from '@/features/board/DropZoneOverlay'
 import { ToastStack }        from '@/components/ToastStack'
 import { AutosaveIndicator } from '@/components/AutosaveIndicator'
 import { MultiSelectToolbar } from '@/features/board/MultiSelectToolbar'
+import { SortPanel } from '@/features/board/SortPanel'
 
 interface Props { wallId: string }
 
@@ -190,9 +191,14 @@ export function Board({ wallId }: Props) {
         <MultiSelectToolbar wallId={wallId} />
       )}
 
-      {/* Bottom-right HUD */}
-      <div className="absolute bottom-5 right-5 flex items-center gap-2 pointer-events-none">
+         {/* Bottom-right HUD */}
+         <div className="absolute bottom-5 right-5 flex items-center gap-2 pointer-events-none">
         <AutosaveIndicator />
+        {cardIds.length > 1 && (
+          <div className="pointer-events-auto">
+            <SortPanel wallId={wallId} />
+          </div>
+        )}
         {cardIds.length > 0 && (
           <button
             className="pointer-events-auto px-3 py-1.5 rounded-lg

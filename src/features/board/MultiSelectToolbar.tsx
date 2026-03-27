@@ -109,6 +109,18 @@ export function MultiSelectToolbar({ wallId }: Props) {
           </svg>
         </ToolbarBtn>
 
+          {/* Auto arrange */}
+          <ToolbarBtn title="Расставить по сетке" onClick={() => arrangeCards(selectedCardIds)}>
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <rect x="1" y="1" width="5" height="5" rx="1" fill="currentColor"/>
+            <rect x="8" y="1" width="5" height="5" rx="1" fill="currentColor"/>
+            <rect x="1" y="8" width="5" height="5" rx="1" fill="currentColor"/>
+            <rect x="8" y="8" width="5" height="5" rx="1" fill="currentColor"/>
+          </svg>
+        </ToolbarBtn>
+
+        
+
         <div className="w-px h-4 bg-white/20 mx-0.5" />
 
         {/* Delete */}
@@ -253,4 +265,22 @@ function distributeCards(direction: 'horizontal' | 'vertical', ids: string[]) {
       currentY += card.height + GAP
     })
   }
+}
+
+function arrangeCards(ids: string[], cols = 3, gap = 24) {
+  const store = useCardsStore.getState()
+  const cards = ids.map(id => store.cards.find(c => c.id === id)).filter(Boolean) as any[]
+  if (cards.length === 0) return
+
+  const startX = Math.min(...cards.map(c => c.x))
+  const startY = Math.min(...cards.map(c => c.y))
+
+  cards.forEach((card, i) => {
+    const col = i % cols
+    const row = Math.floor(i / cols)
+    const x = startX + col * (card.width + gap)
+    const y = startY + row * (card.height + gap)
+    store.setDragPosition(card.id, x, y)
+    setTimeout(() => store.commitDrag(card.id), 0)
+  })
 }

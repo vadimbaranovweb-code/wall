@@ -68,9 +68,10 @@ export const CardShell = React.memo(({ cardId }: Props) => {
   )
   const card = useCardsStore(s => s.cards.find(c => c.id === cardId))
 
-  const isSelected  = useBoardStore(s => s.selectedCardId === cardId)
-  const isEditing   = useBoardStore(s => s.editingCardId  === cardId)
-  const selectCard  = useBoardStore(s => s.selectCard)
+  const isSelected       = useBoardStore(s => s.selectedCardIds.includes(cardId))
+  const isEditing        = useBoardStore(s => s.editingCardId === cardId)
+  const selectCard       = useBoardStore(s => s.selectCard)
+  const toggleSelectCard = useBoardStore(s => s.toggleSelectCard)
   const deleteCard  = useCardsStore(s => s.deleteCard)
   const updateColor = useCardsStore(s => s.updateColor)
 
@@ -127,7 +128,14 @@ export const CardShell = React.memo(({ cardId }: Props) => {
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
         onMouseDown={isEditing ? undefined : onMouseDown}
-        onClick={e => { e.stopPropagation(); selectCard(cardId) }}
+        onClick={e => {
+          e.stopPropagation()
+          if (e.shiftKey) {
+            toggleSelectCard(cardId)
+          } else {
+            selectCard(cardId)
+          }
+        }}
         onKeyDown={e => {
           if (!isEditing && (e.key === 'Delete' || e.key === 'Backspace')) {
             setConfirmOpen(true)

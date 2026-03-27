@@ -130,11 +130,7 @@ export const CardShell = React.memo(({ cardId }: Props) => {
         onMouseDown={isEditing ? undefined : onMouseDown}
         onClick={e => {
           e.stopPropagation()
-          if (e.shiftKey) {
-            toggleSelectCard(cardId)
-          } else {
-            selectCard(cardId)
-          }
+          if (!e.shiftKey) selectCard(cardId)
         }}
         onKeyDown={e => {
           if (!isEditing && (e.key === 'Delete' || e.key === 'Backspace')) {

@@ -3,6 +3,7 @@ import { useCardsStore } from '@/stores/cardsStore'
 import { useWallsStore } from '@/stores/wallsStore'
 import { useAuthStore }  from '@/stores/authStore'
 import { useNavigate }   from 'react-router-dom'
+import { useShallow }    from 'zustand/react/shallow'
 import { supabase }      from '@/lib/supabase'
 import { looksLikeUrl, normaliseUrl } from '@/lib/imageUtils'
 import type { Card, WallColor } from '@/types'
@@ -18,12 +19,12 @@ interface Props {
 }
 
 export function MobileBoard({ wallId, onSwitchToDesktop }: Props) {
-  const [input,    setInput]    = useState('')
+  const [input, setInput] = useState('')
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
-  const cards    = useCardsStore(s => s.cards.filter(c => c.wallId === wallId))
-  const walls    = useWallsStore(s => s.walls)
-  const wall     = walls.find(w => w.id === wallId)
+  const cards = useCardsStore(useShallow(s => s.cards.filter(c => c.wallId === wallId)))
+  const walls = useWallsStore(useShallow(s => s.walls))
+  const wall  = walls.find(w => w.id === wallId)
   const { user, signOut } = useAuthStore()
   const isAnonymous = user?.is_anonymous ?? true
   const navigate = useNavigate()
@@ -117,8 +118,10 @@ export function MobileBoard({ wallId, onSwitchToDesktop }: Props) {
         )}
       </div>
 
-      <div className="flex-shrink-0 bg-card border-t border-ink-10 px-3 py-3 flex items-end gap-2"
-           style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}>
+      <div
+        className="flex-shrink-0 bg-card border-t border-ink-10 px-3 py-3 flex items-end gap-2"
+        style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}
+      >
         <button
           className="w-9 h-9 flex items-center justify-center rounded-xl border border-ink-10 text-ink-30 hover:text-ink hover:bg-ink-10 transition-colors flex-shrink-0"
           onClick={handlePaste}
@@ -167,7 +170,9 @@ function MobileCard({ card }: { card: Card }) {
         {card.type === 'text' && (
           <div>
             <p className="text-[10px] font-mono text-ink-30 uppercase tracking-wider mb-1">Заметка</p>
-            <p className="text-sm text-ink leading-relaxed whitespace-pre-wrap">{card.content || <span className="text-ink-30 italic">Пусто</span>}</p>
+            <p className="text-sm text-ink leading-relaxed whitespace-pre-wrap">
+              {card.content || <span className="text-ink-30 italic">Пусто</span>}
+            </p>
           </div>
         )}
         {card.type === 'link' && (
@@ -186,7 +191,9 @@ function MobileCard({ card }: { card: Card }) {
           <div className="flex items-center gap-2">
             <span className="text-base">🎙</span>
             <div>
-              <p className="text-xs text-ink-60">{Math.floor(card.durationSeconds / 60)}:{String(card.durationSeconds % 60).padStart(2, '0')}</p>
+              <p className="text-xs text-ink-60">
+                {Math.floor(card.durationSeconds / 60)}:{String(card.durationSeconds % 60).padStart(2, '0')}
+              </p>
               {card.transcript && <p className="text-sm text-ink mt-0.5">{card.transcript}</p>}
             </div>
           </div>

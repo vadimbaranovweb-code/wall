@@ -5,10 +5,12 @@ import { useAuthStore }  from '@/stores/authStore'
 import { useBoardStore } from '@/stores/boardStore'
 import { useCardsSync }  from '@/hooks/useCardsSync'
 import { useWallsSync }  from '@/hooks/useWallsSync'
+import { useIsMobile }   from '@/hooks/useIsMobile'
 import { Board }         from '@/features/board/Board'
 import { AnonBanner }    from '@/components/AnonBanner'
 import { GlobalSearch }  from '@/features/search/GlobalSearch'
 import { WallSidebar }   from '@/features/sidebar/WallSidebar'
+import { MobileBoard }   from '@/features/mobile/MobileBoard'
 
 export function WallPage() {
   const { wallId }  = useParams<{ wallId: string }>()
@@ -19,8 +21,11 @@ export function WallPage() {
   const resetCamera = useBoardStore(s => s.resetCamera)
   const selectCard  = useBoardStore(s => s.selectCard)
 
-  const [sidebarOpen, setSidebarOpen] = useState(true)
-  const [searchOpen,  setSearchOpen]  = useState(false)
+  const [sidebarOpen,  setSidebarOpen]  = useState(true)
+  const [searchOpen,   setSearchOpen]   = useState(false)
+  const isMobile     = useIsMobile()
+  const [forceDesktop, setForceDesktop] = useState(false)
+  const showMobile   = isMobile && !forceDesktop
 
   useWallsSync()
   useCardsSync(wallId ?? '')
@@ -70,6 +75,15 @@ export function WallPage() {
         <div className="w-6 h-6 border-2 border-ink-10 border-t-ink-60
                         rounded-full animate-spin" />
       </div>
+    )
+  }
+
+  if (showMobile) {
+    return (
+      <MobileBoard
+        wallId={wall.id}
+        onSwitchToDesktop={() => setForceDesktop(true)}
+      />
     )
   }
 

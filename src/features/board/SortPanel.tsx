@@ -8,7 +8,7 @@ interface Props {
 }
 
 const GAP  = 24
-const COLS  = 3
+const COLS = 3
 
 export function SortPanel({ wallId }: Props) {
   const [open, setOpen] = useState(false)
@@ -29,23 +29,31 @@ export function SortPanel({ wallId }: Props) {
       case 'updatedAt-desc':
         sorted.sort((a, b) => b.updatedAt - a.updatedAt)
         break
-      case 'type':
-        const typeOrder = { text: 0, link: 1, image: 2, voice: 3 }
+      case 'type': {
+        const typeOrder: Record<string, number> = { text: 0, link: 1, image: 2, voice: 3 }
         sorted.sort((a, b) => (typeOrder[a.type] ?? 0) - (typeOrder[b.type] ?? 0))
         break
+      }
     }
 
-    // Расставляем по сетке
+    // Расставляем по сетке с учётом высоты строк
     const startX = 100
     const startY = 100
+    const rows: typeof sorted[] = []
+    for (let i = 0; i < sorted.length; i += COLS) {
+      rows.push(sorted.slice(i, i + COLS))
+    }
 
-    sorted.forEach((card, i) => {
-      const col = i % COLS
-      const row = Math.floor(i / COLS)
-      const x = startX + col * (card.width + GAP)
-      const y = startY + row * (card.height + GAP)
-      store.setDragPosition(card.id, x, y)
-      setTimeout(() => store.commitDrag(card.id), 0)
+    let currentY = startY
+    rows.forEach(row => {
+      const maxHeight = Math.max(...row.map(c => c.height))
+      let currentX = startX
+      row.forEach(card => {
+        store.setDragPosition(card.id, currentX, currentY)
+        setTimeout(() => store.commitDrag(card.id), 0)
+        currentX += card.width + GAP
+      })
+      currentY += maxHeight + GAP
     })
 
     setOpen(false)
@@ -80,28 +88,11 @@ export function SortPanel({ wallId }: Props) {
                         tracking-wider px-3 py-2">
             Сортировать и расставить
           </p>
-
-          <SortBtn
-            label="Новые сначала"
-            icon="🕐"
-            onClick={() => handleSort('createdAt-desc')}
-          />
-          <SortBtn
-            label="Старые сначала"
-            icon="📅"
-            onClick={() => handleSort('createdAt-asc')}
-          />
-          <SortBtn
-            label="Недавно изменённые"
-            icon="✏️"
-            onClick={() => handleSort('updatedAt-desc')}
-          />
+          <SortBtn label="Новые сначала"        icon="🕐" onClick={() => handleSort('createdAt-desc')} />
+          <SortBtn label="Старые сначала"       icon="📅" onClick={() => handleSort('createdAt-asc')}  />
+          <SortBtn label="Недавно изменённые"   icon="✏️" onClick={() => handleSort('updatedAt-desc')} />
           <div className="h-px bg-ink-10 mx-2 my-1" />
-          <SortBtn
-            label="По типу"
-            icon="📋"
-            onClick={() => handleSort('type')}
-          />
+          <SortBtn label="По типу"              icon="📋" onClick={() => handleSort('type')}           />
         </div>
       )}
     </div>

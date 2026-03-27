@@ -42,6 +42,14 @@ export function WallPage() {
     if (!wall) navigate('/', { replace: true })
   }, [authLoading, isLoaded, wall, navigate])
 
+  // Таймаут — если за 8 секунд не загрузилось, редиректим
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (!wall) navigate('/', { replace: true })
+    }, 8000)
+    return () => clearTimeout(timer)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement).tagName

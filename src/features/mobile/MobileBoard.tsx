@@ -76,7 +76,7 @@ export function MobileBoard({ wallId, onSwitchToDesktop }: Props) {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-canvas">
+    <div className="flex flex-col bg-canvas" style={{ height: '100dvh' }}>
       <header className="flex items-center gap-3 px-4 py-3 bg-card border-b border-ink-10 flex-shrink-0">
         <button
           className="w-7 h-7 flex items-center justify-center rounded-lg text-ink-30 hover:text-ink hover:bg-ink-10 transition-colors"

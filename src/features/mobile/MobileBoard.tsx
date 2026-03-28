@@ -51,9 +51,22 @@ export function MobileBoard({ wallId, onSwitchToDesktop }: Props) {
   const handlePaste = useCallback(async () => {
     try {
       const text = await navigator.clipboard.readText()
-      if (text.trim()) setInput(text.trim())
-    } catch {}
-  }, [])
+      if (!text.trim()) return
+      const x = 100 + Math.random() * 200
+      const y = 100 + Math.random() * 200
+      if (looksLikeUrl(text.trim())) {
+        createLinkCard(wallId, x, y, normaliseUrl(text.trim()))
+      } else {
+        createTextCard(wallId, x, y, text.trim())
+      }
+    } catch {
+      // clipboard blocked — fallback to input
+      try {
+        const text = await navigator.clipboard.readText()
+        if (text.trim()) setInput(text.trim())
+      } catch {}
+    }
+  }, [wallId, createTextCard, createLinkCard])
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -119,8 +132,7 @@ export function MobileBoard({ wallId, onSwitchToDesktop }: Props) {
       </div>
 
       <div
-        className="flex-shrink-0 bg-card border-t border-ink-10 px-3 py-3 flex items-end gap-2"
-        style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}
+        className="flex-shrink-0 bg-card border-t border-ink-10 px-3 pt-3 pb-4 flex items-end gap-2"
       >
         <button
           className="w-9 h-9 flex items-center justify-center rounded-xl border border-ink-10 text-ink-30 hover:text-ink hover:bg-ink-10 transition-colors flex-shrink-0"

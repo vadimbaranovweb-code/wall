@@ -23,9 +23,8 @@ export function WallPage() {
 
   const [sidebarOpen,  setSidebarOpen]  = useState(true)
   const [searchOpen,   setSearchOpen]   = useState(false)
-  const isMobile     = useIsMobile()
-  const [forceDesktop, setForceDesktop] = useState(false)
-  const showMobile   = isMobile && !forceDesktop
+  const isMobile   = useIsMobile()
+  const showMobile = isMobile
 
   useWallsSync()
   useCardsSync(wallId ?? '')
@@ -87,12 +86,7 @@ export function WallPage() {
   }
 
   if (showMobile) {
-    return (
-      <MobileBoard
-        wallId={wall.id}
-        onSwitchToDesktop={() => setForceDesktop(true)}
-      />
-    )
+    return <MobileBoard wallId={wall.id} />
   }
 
   return (

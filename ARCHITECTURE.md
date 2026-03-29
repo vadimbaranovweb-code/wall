@@ -1,5 +1,5 @@
 # Wall — Architecture Documentation
-*Последнее обновление: 26 марта 2026*
+*Последнее обновление: 28 марта 2026*
 
 ## Что такое Wall
 Инструмент для быстрого захвата мыслей, ссылок и изображений в виде карточек на свободной доске. Не whiteboard, не Notion — быстрый brain dump tool.
@@ -12,7 +12,7 @@
 - **Frontend:** React 18 + TypeScript + Vite
 - **Стили:** Tailwind CSS
 - **Стейт:** Zustand
-- **База данных:** Supabase (PostgreSQL + Auth)
+- **База данных:** Supabase (PostgreSQL + Auth) — регион eu-west-1 (Ireland)
 - **Деплой:** Vercel (через `npx vercel --prod`)
 - **ID генерация:** nanoid
 
@@ -33,7 +33,7 @@ src/
 │
 ├── stores/
 │   ├── authStore.ts                  # User, session, isAnonymous
-│   ├── boardStore.ts                 # Камера (pan/zoom), selectedCardId, fitCards
+│   ├── boardStore.ts                 # Камера, selectedCardIds, мультиселект, fitCards
 │   ├── cardsStore.ts                 # Карточки, drag/resize, updateColor
 │   ├── wallsStore.ts                 # Стены CRUD
 │   └── toastStore.ts                 # Toast уведомления
@@ -44,26 +44,31 @@ src/
 │   └── walls.api.ts                  # CRUD стен
 │
 ├── hooks/
-│   ├── useCardsSync.ts               # Загрузка карточек + autosave (Supabase или localStorage)
-│   ├── useWallsSync.ts               # Загрузка стен + CRUD (Supabase или localStorage)
+│   ├── useCardsSync.ts               # Загрузка карточек + autosave
+│   ├── useWallsSync.ts               # Загрузка стен + CRUD
+│   ├── useIsMobile.ts                # Определение мобильного устройства (< 768px)
 │   ├── useBoard.ts                   # Wheel zoom, pan, screenToCanvas
 │   ├── useCapture.ts                 # Paste/drop pipeline
-│   ├── useDrag.ts                    # Drag карточек
+│   ├── useDrag.ts                    # Drag карточек + групповой drag
 │   ├── useResize.ts                  # Resize карточек
 │   └── useVoiceRecorder.ts           # Запись голоса
 │
 ├── features/
 │   ├── board/
-│   │   ├── Board.tsx                 # Viewport + CSS transform canvas + auto-fit
+│   │   ├── Board.tsx                 # Viewport + canvas + auto-fit + drag selection
+│   │   ├── MultiSelectToolbar.tsx    # Тулбар мультиселекта (выравнивание, сетка, удаление)
+│   │   ├── SortPanel.tsx             # Сортировка и расстановка карточек
 │   │   └── DropZoneOverlay.tsx       # Визуальный оверлей при drag-and-drop
 │   ├── cards/
 │   │   ├── CardShell.tsx             # Обёртка карточки (drag, resize, меню, цвет)
-│   │   ├── TextCard.tsx              # Текстовая карточка с переносом строк
+│   │   ├── TextCard.tsx              # Текстовая карточка
 │   │   ├── ImageCard.tsx             # Карточка с изображением
 │   │   ├── LinkCard.tsx              # Ссылка с превью (OG meta)
 │   │   └── VoiceCard.tsx             # Голосовая заметка
+│   ├── mobile/
+│   │   └── MobileBoard.tsx           # Мобильный layout (лента + action sheet + sidebar)
 │   ├── search/
-│   │   └── GlobalSearch.tsx          # Глобальный поиск по всем стенам (Cmd+F / Cmd+K)
+│   │   └── GlobalSearch.tsx          # Глобальный поиск Cmd+F / Cmd+K
 │   ├── sidebar/
 │   │   └── WallSidebar.tsx           # Sidebar со стенами, профилем, поиском
 │   └── quick-add/
@@ -76,7 +81,7 @@ src/
 │   └── ToastStack.tsx                # Toast уведомления UI
 │
 └── pages/
-    └── WallPage.tsx                  # Страница стены (sidebar + board + search)
+    └── WallPage.tsx                  # Страница стены — десктоп или мобильный layout
 ```
 
 ---
@@ -90,7 +95,7 @@ src/
 | `link` | Ссылка с превью | `content.url, title, ogImageUrl...` |
 | `voice` | Голосовая заметка | `content.audioDataUrl: string` (base64) |
 
-Все карточки хранятся в одной таблице `cards`. Тип-специфичный контент — в JSONB колонке `content`. Цвет карточки — в колонке `color_hex`.
+Все карточки в одной таблице `cards`. Тип-специфичный контент — в JSONB колонке `content`. Цвет — в `color_hex`.
 
 ---
 
@@ -101,7 +106,7 @@ src/
 - `cards` — карточки (все типы в одной таблице)
 
 ### RLS политики
-Все таблицы защищены Row Level Security — пользователь видит только свои данные (`auth.uid() = user_id`).
+Все таблицы защищены Row Level Security — пользователь видит только свои данные.
 
 ### Схема cards
 ```sql
@@ -116,88 +121,92 @@ created_at, updated_at
 
 ### Два режима работы
 
-**Анонимный пользователь (без логина):**
-- Данные хранятся в `localStorage` (ключи: `stena:anon:walls`, `stena:anon:cards`)
-- TTL: 3 дня с момента последней активности
-- `useWallsSync` и `useCardsSync` определяют режим через `getIsAnon()`
-- При создании стены — предлагаем войти через Google
-- Последняя стена сохраняется в `stena:lastWallId`
+**Анонимный пользователь:**
+- Данные в `localStorage` (ключи: `stena:anon:walls`, `stena:anon:cards`)
+- TTL: 3 дня
+- При создании стены → предлагаем войти через Google
 
 **Авторизованный пользователь:**
 - Данные в Supabase
-- Google OAuth через Supabase Auth
-- Сессия живёт бессрочно (autoRefreshToken: true)
+- Google OAuth
+- Сессия живёт бессрочно
 
 ### Миграция при логине
-При событии `SIGNED_IN` в `App.tsx`:
-1. Проверяем есть ли данные в localStorage (`localHasData()`)
-2. Если аккаунт пустой → вставляем стены и карточки как есть
-3. Если аккаунт не пустой → создаём стену "Новые" и кладём туда все карточки
+При `SIGNED_IN` в `App.tsx`:
+1. Проверяем localStorage (`localHasData()`)
+2. Аккаунт пустой → вставляем как есть
+3. Аккаунт не пустой → создаём стену "Новые"
 4. Очищаем localStorage
 5. Защита от двойной миграции: `stena:migrated:{userId}`
 
 ---
 
-## Ключевые флоу
+## Мобильная версия
 
-### Capture
-```
-Paste/Drop → useCapture.ts → определяем тип
-→ cardsStore.create*Card()
-→ useCardsSync → localStorage (аноним) или Supabase (авторизован)
-```
+Автодетект через `useIsMobile()` (< 768px) → рендерим `MobileBoard` вместо десктопного `Board`.
 
-### Autosave
-```
-cardsStore изменился → useCardsSync.subscribe
-→ getIsAnon() → localStorage или Supabase debounce 600ms
-```
+### MobileBoard features
+- Лента карточек (новые сверху)
+- Поле ввода внизу — текст или ссылка
+- Кнопка `+` → action sheet:
+  - Вставить из буфера
+  - Фото из галереи
+  - Голосовая заметка
+- Микрофон → запись голоса прямо из таббара
+- Гамбургер → мобильный sidebar со стенами
+- PWA манифест — можно установить на экран
 
-### Глобальный поиск
-```
-Cmd+F / Cmd+K / кнопка в sidebar
-→ GlobalSearch.tsx оверлей
-→ фильтрация по всем cards в сторе (текст, ссылки, голос, имя файла)
-→ клик на результат → navigate + selectCard + setCamera (зум на карточку)
-```
+---
 
-### Auto-fit камеры
-```
-Карточки загружены → boardStore.fitCards()
-→ bounding box всех карточек → zoom + позиция
-→ кнопка ⊡ вызывает то же вручную
-```
+## Мультиселект
 
-### Цвет карточек
-```
-Три точки меню → палитра 7 цветов
-→ cardsStore.updateColor() → card.colorHex
-→ autosave сохраняет в Supabase / localStorage
-```
+- **Shift + клик** — добавить/убрать карточку
+- **Drag по холсту** — резиновое выделение
+- **Drag выделенных** — все двигаются вместе
+- **Тулбар** при 2+ выделенных:
+  - Выравнивание (6 направлений)
+  - Расставить по сетке
+  - Удаление группой
+
+---
+
+## Сортировка и расстановка
+
+Кнопка "Сортировка" внизу справа:
+- По дате создания / изменения → сетка
+- По типу → строками или столбиками
+- Расставить всё: сетка / столбик / строка
+
+---
+
+## Глобальный поиск
+
+`Cmd+F` / `Cmd+K` / кнопка в sidebar:
+- Поиск по всем стенам и всем типам карточек
+- Результаты в реальном времени
+- Клик → navigate + zoom на карточку
+- Навигация `↑↓`, выбор `Enter`, закрыть `Esc`
+
+---
+
+## Цвет карточек
+
+Три точки → палитра 7 цветов → `card.colorHex` → autosave.
 
 ---
 
 ## Деплой
-
-Проект деплоится через Vercel CLI напрямую (не через GitHub Actions из-за кэш-проблем):
 ```bash
 npm run build          # проверить локально
-npx vercel --prod      # задеплоить в продакшн
-```
-
-GitHub push нужен для истории кода:
-```bash
-git add .
-git commit -m "feat: ..."
-git push
-npx vercel --prod
+npx vercel --prod      # задеплоить
+git add . && git commit -m "..." && git push  # история в GitHub
 ```
 
 ---
 
 ## Переменные окружения
 ```env
-VITE_SUPABASE_URL=https://xxx.supabase.co
+VITE_SUPABASE_URL=https://qjbxopyglyagbuodrwov.supabase.co
 VITE_SUPABASE_ANON_KEY=eyJ...
 ```
 
@@ -214,44 +223,46 @@ npm run dev
 
 ## Известные ограничения
 
-1. **Images как base64** — нужно мигрировать на Supabase Storage
+1. **Images как base64** — нужно мигрировать на Supabase Storage при росте
 2. **Нет шаринга** — публичные read-only ссылки запланированы
 3. **Нет Stripe** — монетизация запланирована
+4. **Supabase может блокироваться** у некоторых провайдеров СНГ без VPN
 
 ---
 
 ## Роадмап
 
-### ✅ P0 — Сделано
+### ✅ Сделано
 - Фикс 404 при reload
-- Auto-fit карточек при входе
-- Sidebar (ChatGPT стиль, скрываемый)
-- Поиск по стенам в sidebar
-- Глобальный поиск Cmd+F по всем стенам
-- Три точки меню на карточке
+- Auto-fit карточек
+- Sidebar (ChatGPT стиль)
+- Глобальный поиск Cmd+F
 - Цвет карточек (7 цветов)
-- Удаление с подтверждением
-- Перенос строк в текстовых карточках
-- Анонимный режим (localStorage, 3 дня)
-- Миграция данных анонима → Supabase при логине
-- Убран топбар, убрана страница списка стен
-- Сразу открывается последняя стена
+- Мультиселект + выравнивание
+- Сортировка и расстановка
+- Анонимный режим (localStorage)
+- Миграция данных при логине
+- Мобильная версия (PWA)
+- Голосовые заметки на мобильном
 
-### P1 — Следующий спринт
-- [ ] Supabase Storage для изображений
+### P1 — Запуск
+- [ ] UI правки (мобиль + десктоп)
 - [ ] Landing page
 - [ ] Первые пользователи
-- [ ] Stripe монетизация
 
-### P2
+### P2 — Монетизация
+- [ ] Stripe
+- [ ] Free tier ограничения (3 стены, 50 карточек)
+
+### P3 — Рост
 - [ ] Chrome плагин
-- [ ] Мобильная версия (PWA)
-- [ ] Шаринг стены (read-only)
-- [ ] Alt-копирование карточек
-- [ ] Перемещение между стенами
+- [ ] Share стены (read-only)
 - [ ] Экспорт в PNG
+- [ ] Supabase Storage для изображений
+- [ ] Alt-копирование карточек
 
-### P3
-- [ ] Мобильное приложение
-- [ ] Multi-select
-- [ ] Сортировка карточек
+### P4 — Масштаб
+- [ ] Мобильное приложение iOS/Android
+- [ ] Коллаборация
+- [ ] API
+- [ ] i18n
